@@ -1,0 +1,56 @@
+---
+
+global:
+  gitUser: Laminar
+  gitEmail: laminar@myorg.com
+  gitMessage: "automated promotion, see github.com/your/docs-or-whatnot"
+
+# you need to tell laminar specifically which docker registries you're using
+# it needs to know the name so that it can find images in your git repo that match it
+#
+# NOTE: Laminar explicitly required the full image name and tag in one line.. for example:
+#
+#  BAD:.. This is tricky to match in unstructured yaml and laminar won't spot it
+#  my-app:
+#    image: gcr.io/bla/bla
+#    tag:  foo
+#
+# GOOD:.. because the whole image is in a single string, laminar will detect it:
+#  my-app: gcr.io/bla/bla:foo
+#
+dockerRegistries:
+- reg: gcr.io/myorg
+  name: gcr
+- reg: 112233445566.dkr.ecr.eu-west-2.amazonaws.com/myorg
+  name: ecr
+
+# List of git repo's to loop through..
+git:
+- name: myrepo               # name of your git repo (for logging/metrics)
+  url: git@github.com:digtux/laminar-example.git
+  branch: master
+  key: ~/example_ssh_id_rsa  # path to the SSH key (needed for git)
+  pollFreq: 120              # How often to sync.. (ensure laminar has the latest git and tags from docker registries)
+  remoteConfig: true         # on top of the "updates" listed below.. ALSO read the ".laminar.yaml" (from the remote git repo)
+
+  # "updates" is a list of files (or directories) to be searched in your git repo
+  # each item contains a pattern.. Laminar will search for images matching pattern (for each dockerRegistry)
+
+  updates:
+
+  # Example...
+  # this pattern will result in laminar searching for strings like: gcr.io/myorg/<image>:develop-*
+  - pattern: "glob:develop-*"  # look (using glob matching) for images tagged as "develop-*"
+    files:                     # which files to update
+
+    - path: inventory/classes/images-dev.yml # ensure to check this file
+    - path: compiled/                        # check ALL the files in this directory
+
+  # Now you can use laminar to also promote other "channels" or prefixed tag patterns in the same go..
+  - pattern: "glob:master-*"
+    files:
+      - path: inventory/classes/images-staging.yml
+
+  - pattern: "glob:release-*"
+    files:
+      - path: inventory/classes/images-prod.yml

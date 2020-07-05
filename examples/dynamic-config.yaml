@@ -1,0 +1,33 @@
+---
+
+global:
+  gitUser: Laminar
+  gitEmail: laminar@myorg.com
+  gitMessage: "automated promotion, see github.com/your/docs-or-whatnot"
+
+dockerRegistries:
+- reg: gcr.io/myorg
+  name: gcr
+- reg: 112233445566.dkr.ecr.eu-west-2.amazonaws.com/myorg
+  name: ecr
+
+# Git Repos
+git:
+- name: myrepo
+  url: git@github.com:digtux/laminar-example.git
+  branch: master
+  key: ~/example_ssh_id_rsa
+  pollFreq: 60
+  updates:
+
+  - pattern: "glob:develop-*"
+    files:
+    - path: inventory/classes/images-dev.yml
+
+  - pattern: "glob:master-*"
+    files:
+      - path: inventory/classes/images-staging.yml
+
+  - pattern: "glob:release-*"
+    files:
+      - path: inventory/classes/images-prod.yml
