@@ -1,12 +1,41 @@
 package git
 
 import (
+	"bytes"
+	"os/exec"
+	"time"
+
 	"github.com/digtux/laminar/pkg/config"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"go.uber.org/zap"
-	"time"
 )
+
+func executeCmd(command string, path string, log *zap.SugaredLogger) {
+
+	var stdout bytes.Buffer
+
+	log.Infow("executeCmd", command)
+
+	args := []string{"-c"}
+
+	args = append(args, command)
+
+	cmd := exec.Command("sh", args...)
+	//, args...)
+	// set the location for the command
+	cmd.Dir = path
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stdout
+	// run it
+	err := cmd.Run()
+	if err != nil {
+		log.Error(err)
+	}
+	log.Info("ran", args)
+	log.Info(stdout.String())
+	// TODO: improve logging
+}
 
 func CommitAndPush(registry config.GitRepo, global config.Global, message string, log *zap.SugaredLogger) {
 	path := GetRepoPath(registry)
@@ -22,6 +51,13 @@ func CommitAndPush(registry config.GitRepo, global config.Global, message string
 	if err != nil {
 		log.Fatal("Couldn't open git in %v [%v]", path, err)
 	}
+
+	if len(registry.PreCommitCommands) > 0 {
+		for _, cmd := range registry.PreCommitCommands {
+			executeCmd(cmd, path, log)
+		}
+	}
+
 	// auth := getAuth(registry.Key)
 	log.Debugw("time to commit git",
 		"registry", registry.URL,

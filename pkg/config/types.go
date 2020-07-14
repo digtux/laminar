@@ -34,6 +34,7 @@ type GitRepo struct {
 	Name         string    `yaml:"name"`
 	RemoteConfig bool      `yaml:"remoteConfig"` // propogate []Updates from remote git ".laminar.yaml" ?
 	Updates      []Updates `yaml:"updates,omitempty"`
+	PreCommitCommands []string  `yaml:"preCommitCommands,omitempty"`
 	//PostChange   []PostChanges `yaml:"postChange"`
 }
 
