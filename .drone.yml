@@ -1,0 +1,20 @@
+kind: pipeline
+name: install
+steps:
+- name: publish
+  image: plugins/docker # http://plugins.drone.io/drone-plugins/drone-docker/
+  settings:
+    dockerfile: Dockerfile
+    repo: "${CI_REPO}"
+    tags:
+    - '${DRONE_BRANCH/\//-}-${DRONE_COMMIT_SHA:0:8},latest'
+    username: digtux
+    password:
+      from_secret: dockerhub-pass
+trigger:
+  branch:
+  - master
+  - feature/*
+  event:
+  - push
+  - tag
