@@ -18,7 +18,7 @@ steps:
     dockerfile: Dockerfile
     password:
       from_secret: dockerhub-pass
-    repo: ${CI_REPO}
+    repo: "${CI_REPO}"
     username: digtux
 
 - name: tags-kapitan
@@ -33,7 +33,7 @@ steps:
     dockerfile: Dockerfile
     password:
       from_secret: dockerhub-pass
-    repo: ${CI_REPO}
+    repo: "${CI_REPO}"
     username: digtux
 
 trigger:
