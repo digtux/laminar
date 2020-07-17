@@ -1,0 +1,47 @@
+---
+kind: pipeline
+name: build
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: tags-alpine
+  image: bitnami/git
+  commands:
+  - git fetch --tags
+  - echo "${DRONE_BRANCH///-}-$(git describe --tags --always)-alpine" > .tags
+
+- name: publish-alpine
+  image: plugins/docker
+  settings:
+    dockerfile: Dockerfile
+    password:
+      from_secret: dockerhub-pass
+    repo: ${CI_REPO}
+    username: digtux
+
+- name: tags-kapitan
+  image: bitnami/git
+  commands:
+  - git fetch --tags
+  - echo "${DRONE_BRANCH///-}-$(git describe --tags --always)-kapitan" > .tags
+
+- name: publish-kapitan
+  image: plugins/docker
+  settings:
+    dockerfile: Dockerfile
+    password:
+      from_secret: dockerhub-pass
+    repo: ${CI_REPO}
+    username: digtux
+
+trigger:
+  branch:
+  - master
+  - feature/*
+  event:
+  - push
+
+...
