@@ -1,0 +1,15 @@
+FROM golang:1.14 as BUILD
+
+WORKDIR /build
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o laminar .
+
+
+###
+FROM deepmind/kapitan:0.28-ci
+RUN apt-get update && apt-get install -y bash tini
+
+WORKDIR /app
+COPY --from=BUILD /build/laminar .
+ENTRYPOINT [ "/usr/bin/tini", "--", "/app/laminar" ]

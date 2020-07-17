@@ -2,6 +2,7 @@ package git
 
 import (
 	"bytes"
+	"fmt"
 	"os/exec"
 	"time"
 
@@ -32,8 +33,7 @@ func executeCmd(command string, path string, log *zap.SugaredLogger) {
 	if err != nil {
 		log.Error(err)
 	}
-	log.Info("ran", args)
-	log.Info(stdout.String())
+	fmt.Println(stdout.String())
 	// TODO: improve logging
 }
 
