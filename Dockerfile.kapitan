@@ -10,6 +10,14 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o laminar .
 FROM deepmind/kapitan:0.28-ci
 RUN apt-get update && apt-get install -y bash tini
 
+
+## prep SSH for github
+RUN mkdir /root/.ssh && \
+      ssh-keyscan -t rsa github.com 2>/dev/null \
+      > /root/.ssh/known_hosts
+
+RUN chmod 0640 /root/.ssh
+
 WORKDIR /app
 COPY --from=BUILD /build/laminar .
 ENTRYPOINT [ "/usr/bin/tini", "--", "/app/laminar" ]
