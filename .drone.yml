@@ -15,7 +15,7 @@ steps:
 - name: publish-alpine
   image: plugins/docker
   settings:
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.alpine
     password:
       from_secret: dockerhub-pass
     repo: "${CI_REPO}"
@@ -30,7 +30,7 @@ steps:
 - name: publish-kapitan
   image: plugins/docker
   settings:
-    dockerfile: Dockerfile
+    dockerfile: Dockerfile.kapitan
     password:
       from_secret: dockerhub-pass
     repo: "${CI_REPO}"
