@@ -11,13 +11,18 @@ FROM deepmind/kapitan:0.28-ci
 RUN apt-get update && apt-get install -y bash tini
 
 
+ENV SSH_KEY=/config/id-rsa
+
+
 ## prep SSH for github
 RUN mkdir /root/.ssh && \
       ssh-keyscan -t rsa github.com 2>/dev/null \
       > /root/.ssh/known_hosts
 
 RUN chmod 0640 /root/.ssh
+COPY docker-entrypoint.sh .
 
 WORKDIR /app
 COPY --from=BUILD /build/laminar .
-ENTRYPOINT [ "/usr/bin/tini", "--", "/app/laminar" ]
+ENTRYPOINT ["/usr/bin/tini", "--", "/docker-entrypoint.sh"]
+

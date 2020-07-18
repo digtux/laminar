@@ -6,20 +6,21 @@ platform:
   arch: amd64
 
 steps:
-- name: tags-alpine
-  image: bitnami/git
-  commands:
-  - git fetch --tags
-  - echo "$(git describe --tags --always)-alpine" > .tags
 
-- name: publish-alpine
-  image: plugins/docker
-  settings:
-    dockerfile: Dockerfile.alpine
-    password:
-      from_secret: dockerhub-pass
-    repo: "${CI_REPO}"
-    username: digtux
+# - name: tags-alpine
+#   image: bitnami/git
+#   commands:
+#   - git fetch --tags
+#   - echo "$(git describe --tags --always)-alpine" > .tags
+
+# - name: publish-alpine
+#   image: plugins/docker
+#   settings:
+#     dockerfile: Dockerfile.alpine
+#     password:
+#       from_secret: dockerhub-pass
+#     repo: "${CI_REPO}"
+#     username: digtux
 
 - name: tags-kapitan
   image: bitnami/git
