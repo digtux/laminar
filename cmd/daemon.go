@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/config"
 	"github.com/digtux/laminar/pkg/git"
@@ -9,8 +12,6 @@ import (
 	"github.com/digtux/laminar/pkg/registry"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"os"
-	"time"
 )
 
 // switch between a vanilla Development or Production logging format (--debug)
@@ -200,7 +201,8 @@ func DaemonStart() {
 			}
 
 			// TODO: use a Tick() instead of this Sleep()
-			time.Sleep(60 * time.Second)
+			time.Sleep(10 * time.Second)
+			os.Exit(0)
 		}
 
 	}
