@@ -3,7 +3,7 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/digtux/laminar/pkg/config"
+	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/tidwall/buntdb"
 	"go.uber.org/zap"
 	"strings"
@@ -19,7 +19,7 @@ type TagInfo struct {
 }
 
 // Exec will check if we support that docker reg and then launch an appropriate worker
-func Exec(db *buntdb.DB, registry config.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
+func Exec(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
 
 	// grok will add some defaults lest the config doesn't include em
 	registry = grokRegistrySettings(registry)
@@ -42,7 +42,7 @@ func Exec(db *buntdb.DB, registry config.DockerRegistry, imageList []string, log
 }
 
 // incase some fields are missing, lets set their defaults
-func grokRegistrySettings(in config.DockerRegistry) config.DockerRegistry {
+func grokRegistrySettings(in cfg.DockerRegistry) cfg.DockerRegistry {
 
 	// incase this is empty set it..
 	if in.TimeOut == 0 {
@@ -70,12 +70,11 @@ func CachedImagesToTagInfoListSpecificImage(
 		})
 		return nil
 	})
-	log.Debugw("searched DB for images",
-		"image", imageString,
-		"hits", len(result),
-	)
+	//log.Debugw("searched DB for images",
+	//	"image", imageString,
+	//	"hits", len(result),
+	//)
 	return result
-
 }
 
 func JsonStringToTagInfo(s string, log *zap.SugaredLogger) TagInfo {
@@ -101,7 +100,7 @@ func TagInfoToCache(info TagInfo, db *buntdb.DB, log *zap.SugaredLogger) {
 	}
 
 	insertedValue := string(byteArray)
-	log.Debugf("writing to cache: key: '%s', value: '%s'", StorageKey, insertedValue)
+	//log.Debugf("writing to cache: key: '%s', value: '%s'", StorageKey, insertedValue)
 	err = db.Update(func(tx *buntdb.Tx) error {
 		_, _, err := tx.Set(StorageKey, insertedValue, Opts)
 		return err

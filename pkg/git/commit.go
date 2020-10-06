@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/digtux/laminar/pkg/config"
+	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"go.uber.org/zap"
@@ -16,7 +16,9 @@ func executeCmd(command string, path string, log *zap.SugaredLogger) {
 
 	var stdout bytes.Buffer
 
-	log.Infow("executeCmd", command)
+	log.Infow("executeCmd",
+		"command", command,
+	)
 
 	args := []string{"-c"}
 
@@ -37,7 +39,7 @@ func executeCmd(command string, path string, log *zap.SugaredLogger) {
 	// TODO: improve logging
 }
 
-func CommitAndPush(registry config.GitRepo, global config.Global, message string, log *zap.SugaredLogger) {
+func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log *zap.SugaredLogger) {
 	path := GetRepoPath(registry)
 	r, err := git.PlainOpen(path)
 	if err != nil {

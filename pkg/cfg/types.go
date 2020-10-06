@@ -1,4 +1,4 @@
-package config
+package cfg
 
 // Global settings such as git commit user/email
 type Global struct {

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/digtux/laminar/pkg/config"
+	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/tidwall/buntdb"
 	"go.uber.org/zap"
 )
@@ -29,7 +29,7 @@ func (c SortImageIds) Less(i, j int) bool {
 	return strings.Compare(*c[i].ImageTag, *c[j].ImageTag) == -1
 }
 
-func EcrGetAuth(registry config.DockerRegistry) (svc *ecr.ECR) {
+func EcrGetAuth(registry cfg.DockerRegistry) (svc *ecr.ECR) {
 
 	mySession := session.Must(session.NewSession())
 	myRegion := strings.Split(registry.Reg, ".")[3]
@@ -41,7 +41,7 @@ func EcrGetAuth(registry config.DockerRegistry) (svc *ecr.ECR) {
 	return svc
 }
 
-func EcrWorker(db *buntdb.DB, registry config.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
+func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
 
 	timeStart := time.Now()
 	totalTags := 0
@@ -76,7 +76,7 @@ func EcrWorker(db *buntdb.DB, registry config.DockerRegistry, imageList []string
 func EcrDescribeImageToCache(
 	svc *ecr.ECR,
 	repositoryName string,
-	registry config.DockerRegistry,
+	registry cfg.DockerRegistry,
 	db *buntdb.DB,
 	log *zap.SugaredLogger,
 ) (total int) {
@@ -112,11 +112,11 @@ func EcrDescribeImageToCache(
 			}
 			TagInfoToCache(*hitTagInfo, db, log)
 
-			log.Debugw("found tag",
-				"fullImageName", fullImageName,
-				"INFO", hitTagInfo,
-				"reg", registry.Reg,
-			)
+			//log.Debugw("found tag",
+			//	"fullImageName", fullImageName,
+			//	"INFO", hitTagInfo,
+			//	"reg", registry.Reg,
+			//)
 
 		}
 
