@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/jinzhu/copier"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"strings"
+
+	"github.com/jinzhu/copier"
+	"go.uber.org/zap"
 )
 
 func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
@@ -23,8 +24,17 @@ func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
 		fmt.Println(err)
 	}
 
+	// assemble the full strings of the images
+	oldString := fmt.Sprintf("%s:%s", change.Image, change.Old)
+	newString := fmt.Sprintf("%s:%s", change.Image, change.New)
+
+	log.Debugw("Doing change",
+		"old", oldString,
+		"new", newString,
+	)
+
 	// apply changes to stringContents
-	stringContents = strings.Replace(string(r), change.Old, change.New, -1)
+	stringContents = strings.Replace(string(r), oldString, newString, -1)
 
 	// see if it changed
 	if originalContents != stringContents {
@@ -34,14 +44,6 @@ func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
 		if err != nil {
 			fmt.Println(err)
 		}
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		//log.Debugw("DoChange wrote a change to disk",
-		//	"change", change,
-		//)
 
 		return true
 	}
