@@ -7,6 +7,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"go.uber.org/zap"
 	"os"
+	"strings"
 
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
@@ -47,7 +48,9 @@ func Pull(registry cfg.GitRepo, log *zap.SugaredLogger) {
 }
 
 func GetRepoPath(registry cfg.GitRepo) string {
-	return string("/tmp/" + registry.URL + "-" + registry.Branch)
+	replacedSlash := strings.Replace(registry.Branch, "/", "-", -1)
+	replacedColon := strings.Replace(replacedSlash, ":", "-", -1)
+	return string("/home/starkers/" + registry.URL + "-" + replacedColon)
 }
 
 // All-In-One method that will do a clone and checkout
@@ -88,7 +91,7 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 	}
 
 	opts := &git.FetchOptions{
-		RefSpecs: []config.RefSpec{"refs/*:refs/*", "HEAD:refs/heads/HEAD"},
+		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
 	}
 
 	if err := r.Fetch(opts); err != nil {
@@ -97,18 +100,18 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 		)
 	}
 
-	rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
-	if err != nil {
-		log.Fatalw("Error resolving branch",
-			"branch", registry.Branch,
-			"error", err,
-			)
-		return
-	}
-	log.Infow("calculated git revision",
-		"branch", registry.Branch,
-		"rev", rev,
-	)
+	//rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
+	//if err != nil {
+	//	log.Fatalw("Error resolving branch",
+	//		"branch", registry.Branch,
+	//		"error", err,
+	//		)
+	//	return
+	//}
+	//log.Infow("calculated git revision",
+	//	"branch", registry.Branch,
+	//	"rev", rev,
+	//)
 
 	w, err := r.Worktree()
 	if err != nil{
@@ -117,9 +120,13 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 		)
 	}
 
+	//rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
+	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
+
 	err = w.Checkout(&git.CheckoutOptions{
-		Hash:  *rev,
-		Force: true,
+		//Hash:  *rev,
+		//Force: true,
+		Branch: mergeRef,
 	})
 
 	if err != nil{
