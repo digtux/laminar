@@ -2,16 +2,19 @@ package git
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"go.uber.org/zap"
-	"os"
 
+	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
-	"github.com/digtux/laminar/pkg/config"
 )
 
-func Pull(registry config.GitRepo, log *zap.SugaredLogger) {
+func Pull(registry cfg.GitRepo, log *zap.SugaredLogger) {
 	path := GetRepoPath(registry)
 	r, err := git.PlainOpen(path)
 	if err != nil {
@@ -45,11 +48,14 @@ func Pull(registry config.GitRepo, log *zap.SugaredLogger) {
 	log.Debugf(GetCommitId(path, log))
 }
 
-func GetRepoPath(registry config.GitRepo) string {
-	return string("/tmp/" + registry.URL + "-" + registry.Branch)
+func GetRepoPath(registry cfg.GitRepo) string {
+	replacedSlash := strings.Replace(registry.Branch, "/", "-", -1)
+	replacedColon := strings.Replace(replacedSlash, ":", "-", -1)
+	return string("/tmp/" + registry.URL + "-" + replacedColon)
 }
 
-func InitialGitClone(registry config.GitRepo, log *zap.SugaredLogger) {
+// All-In-One method that will do a clone and checkout
+func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 	diskPath := GetRepoPath(registry)
 	log.Debugw("Doing initialGitClone",
 		"url", registry.URL,
@@ -71,7 +77,8 @@ func InitialGitClone(registry config.GitRepo, log *zap.SugaredLogger) {
 			)
 		}
 	}
-	_, err := git.PlainClone(diskPath, false, &git.CloneOptions{
+
+	r, err := git.PlainClone(diskPath, false, &git.CloneOptions{
 		URL:      registry.URL,
 		Progress: nil,
 		Auth:     auth,
@@ -82,9 +89,56 @@ func InitialGitClone(registry config.GitRepo, log *zap.SugaredLogger) {
 			"error", err,
 		)
 		defer os.Exit(0)
-	} else {
-		log.Infof("InitialCheckout to %v success", diskPath)
 	}
+
+	opts := &git.FetchOptions{
+		RefSpecs: []config.RefSpec{"refs/*:refs/*"},
+	}
+
+	if err := r.Fetch(opts); err != nil {
+		log.Fatalw("Error fetching remotes",
+			"error", err,
+		)
+	}
+
+	//rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
+	//if err != nil {
+	//	log.Fatalw("Error resolving branch",
+	//		"branch", registry.Branch,
+	//		"error", err,
+	//		)
+	//	return
+	//}
+	//log.Infow("calculated git revision",
+	//	"branch", registry.Branch,
+	//	"rev", rev,
+	//)
+
+	w, err := r.Worktree()
+	if err != nil {
+		log.Fatalw("unable to get Worktree of the repo",
+			"error", err,
+		)
+	}
+
+	//rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
+	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
+
+	err = w.Checkout(&git.CheckoutOptions{
+		//Hash:  *rev,
+		//Force: true,
+		Branch: mergeRef,
+	})
+
+	if err != nil {
+		log.Fatalw("Error checking out branch",
+			"error", err,
+		)
+	}
+
+	//else {
+	//	log.Infof("InitialCheckout to %v success", diskPath)
+	//}
 }
 
 func GetCommitId(path string, log *zap.SugaredLogger) string {

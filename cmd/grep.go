@@ -3,16 +3,17 @@ package cmd
 import (
 	"bufio"
 	"bytes"
-	"github.com/digtux/laminar/pkg/common"
-	"github.com/digtux/laminar/pkg/config"
-	"github.com/digtux/laminar/pkg/registry"
-	"github.com/gobwas/glob"
-	"github.com/tidwall/buntdb"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/common"
+	"github.com/digtux/laminar/pkg/registry"
+	"github.com/gobwas/glob"
+	"github.com/tidwall/buntdb"
+	"go.uber.org/zap"
 )
 
 // ChangeRequests is an object recording what changed and when
@@ -28,7 +29,7 @@ type ChangeRequest struct {
 
 func DoUpdate(
 	filePath string,
-	updates config.Updates,
+	updates cfg.Updates,
 	registryStrings []string,
 	db *buntdb.DB,
 	log *zap.SugaredLogger,
@@ -81,12 +82,13 @@ func DoUpdate(
 			candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
 
 			if MatchGlob(candidateTag, patternValue) {
-				log.Debugw("Matched Globs",
-					"candidateImage", candidateImage,
-					"candidateTag", candidateTag,
-					"pattern", patternValue,
-					"type", patternType,
-				)
+
+				// log.Debugw("Matched Globs",
+				// 	"candidateImage", candidateImage,
+				// 	"candidateTag", candidateTag,
+				// 	"pattern", patternValue,
+				// 	"type", patternType,
+				// )
 
 				// get a full list of tags for the image from our cache
 				index := "created"
@@ -183,16 +185,6 @@ func EvaluateIfImageShouldChangeGlob(
 
 				// exclude identical tags from git+registry
 				if potentialTag.Tag != currentTag {
-					log.Debug("attempting to generate a ChangeRequest",
-						"image", potentialTag.Image,
-						"newHash", potentialTag.Hash,
-						"oldTag", currentTag,
-						"newTag", potentialTag.Tag,
-						"patternType", "glob",
-						"patternValue", patternValue,
-						"image", image,
-						"file", file,
-					)
 					cr = ChangeRequest{
 						Old:          currentTag,
 						New:          potentialTag.Tag,
@@ -256,7 +248,7 @@ func grepFile(file string, searchString string, log *zap.SugaredLogger) (matches
 				if bytes.Contains([]byte(field), pat) {
 					// val := strings.Fields(scanner.Text())[1]
 					matches = append(matches, field)
-					log.Debug(scanner.Text())
+					log.Debug(field)
 				}
 			}
 		}
@@ -265,10 +257,10 @@ func grepFile(file string, searchString string, log *zap.SugaredLogger) (matches
 		log.Error(err)
 	}
 	if len(matches) > 0 {
-		log.Debugw("grepFile found some matches",
-			"searchString", searchString,
+		log.Debugw("found some images that may need updating",
+			"count", len(matches),
 			"file", file,
-			"matches", matches,
+			"searchString", searchString,
 		)
 	} else {
 		log.Debugw("grepFile found no matches",

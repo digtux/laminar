@@ -31,3 +31,4 @@ git:
   - pattern: "glob:release-*"
     files:
       - path: inventory/classes/images-prod.yml
+

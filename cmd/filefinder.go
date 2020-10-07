@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
-	"github.com/digtux/laminar/pkg/config"
 	"github.com/digtux/laminar/pkg/git"
 	"github.com/digtux/laminar/pkg/operations"
 	"go.uber.org/zap"
@@ -14,7 +14,7 @@ import (
 // NOTE2: if it looks like a folder all files found underneath will be included
 // TODO: how does this play with .git files? we probably want to filter+exclude them here
 // TODO: might want to exclude tarballs and other kind of things also I guess..
-func FileFinder(gitRepo config.GitRepo, log *zap.SugaredLogger) []string {
+func FileFinder(gitRepo cfg.GitRepo, log *zap.SugaredLogger) []string {
 
 	// empty the list of files found
 	fileList = nil
@@ -27,7 +27,8 @@ func FileFinder(gitRepo config.GitRepo, log *zap.SugaredLogger) []string {
 		for _, p := range update.Files {
 			log.Debugw("FileFinder searching for files",
 				"path", p.Path,
-				"gitRepo", gitRepo,
+				"gitRepo", gitRepo.URL,
+				"branch", gitRepo.Branch,
 			)
 
 			thisReposPaths = append(thisReposPaths, p.Path)

@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/digtux/laminar/pkg/config"
+	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/tidwall/buntdb"
 	"go.uber.org/zap"
 )
@@ -29,19 +29,16 @@ func (c SortImageIds) Less(i, j int) bool {
 	return strings.Compare(*c[i].ImageTag, *c[j].ImageTag) == -1
 }
 
-func EcrGetAuth(registry config.DockerRegistry) (svc *ecr.ECR) {
+func EcrGetAuth(registry cfg.DockerRegistry) (svc *ecr.ECR) {
 
 	mySession := session.Must(session.NewSession())
 	myRegion := strings.Split(registry.Reg, ".")[3]
-	//myRegistryId := strings.Split(registry.Reg, ".")[0]
-	//myRepositoryName := strings.Split(registry.Reg, "/")[1]
-
 	svc = ecr.New(mySession, aws.NewConfig().WithRegion(myRegion))
 
 	return svc
 }
 
-func EcrWorker(db *buntdb.DB, registry config.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
+func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
 
 	timeStart := time.Now()
 	totalTags := 0
@@ -76,7 +73,7 @@ func EcrWorker(db *buntdb.DB, registry config.DockerRegistry, imageList []string
 func EcrDescribeImageToCache(
 	svc *ecr.ECR,
 	repositoryName string,
-	registry config.DockerRegistry,
+	registry cfg.DockerRegistry,
 	db *buntdb.DB,
 	log *zap.SugaredLogger,
 ) (total int) {
@@ -87,8 +84,15 @@ func EcrDescribeImageToCache(
 		RepositoryName: aws.String(repositoryName),
 	}
 
-	// Example sending a request using DescribeImagesRequest.
-	result, err := svc.DescribeImages(describeImageSettings)
+	var imageDetails []*ecr.ImageDetail
+
+	// page through all ECR images and add them to the imageDetails slice
+	// https://github.com/terraform-providers/terraform-provider-aws/pull/8403/files/83d482992b6c42bea36d94f14b1da6616dc81ad1
+	err := svc.DescribeImagesPages(describeImageSettings, func(page *ecr.DescribeImagesOutput, lastPage bool) bool {
+		imageDetails = append(imageDetails, page.ImageDetails...)
+		return true
+	})
+
 	if err != nil {
 		log.Fatalw("ECR DescribeImages failed",
 			"error", err,
@@ -98,7 +102,7 @@ func EcrDescribeImageToCache(
 	// only the AWS sdk required the "prefix/myimage" part of the repositoryName, afterwards lets remove that
 	repositoryName = strings.Split(repositoryName, "/")[1]
 
-	for _, hit := range result.ImageDetails {
+	for _, hit := range imageDetails {
 		for _, tag := range hit.ImageTags {
 			total++
 			cleanerDigest := strings.Split(*hit.ImageDigest, ":")[1]
@@ -112,12 +116,6 @@ func EcrDescribeImageToCache(
 			}
 			TagInfoToCache(*hitTagInfo, db, log)
 
-			log.Debugw("found tag",
-				"fullImageName", fullImageName,
-				"INFO", hitTagInfo,
-				"reg", registry.Reg,
-			)
-
 		}
 
 	}
@@ -125,7 +123,7 @@ func EcrDescribeImageToCache(
 		"registryUrl", registry.Reg,
 		"registryName", registry.Name,
 		"images", repositoryName,
-		"totalTags", len(result.ImageDetails),
+		"totalTags", len(imageDetails),
 	)
 	return total
 }

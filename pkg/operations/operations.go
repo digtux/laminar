@@ -86,7 +86,7 @@ func Search(file string, searchString string, log *zap.SugaredLogger) (matches [
 				if bytes.Contains([]byte(field), pat) {
 					// val := strings.Fields(scanner.Text())[1]
 					matches = append(matches, field)
-					log.Debug(scanner.Text())
+					//log.Debug(scanner.Text())
 				}
 			}
 		}

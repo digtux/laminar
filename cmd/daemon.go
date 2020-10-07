@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"os"
 	"time"
 
 	"github.com/digtux/laminar/pkg/cache"
-	"github.com/digtux/laminar/pkg/config"
+	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/git"
 	"github.com/digtux/laminar/pkg/operations"
 	"github.com/digtux/laminar/pkg/registry"
@@ -30,7 +31,10 @@ func startLogger(debug bool) (zapLog *zap.SugaredLogger) {
 	} else {
 		// Override the production Config (I personally don't see the point of using stderr
 		// https://github.com/uber-go/zap/blob/feeb9a050b31b40eec6f2470e7599eeeadfe5bdd/config.go#L119
-		logConfig := zap.NewProductionConfig()
+
+		logConfig := zap.NewDevelopmentConfig()
+		logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		//logConfig := zap.NewProductionConfig()
 		logConfig.OutputPaths = []string{"stdout"}
 		logConfig.ErrorOutputPaths = []string{"stdout"}
 		zapLogger, err := logConfig.Build()
@@ -61,7 +65,7 @@ func DaemonStart() {
 
 	log := startLogger(debug)
 
-	rawFile, err := config.LoadFile(configFile, log)
+	rawFile, err := cfg.LoadFile(configFile, log)
 	if err != nil {
 		log.Errorw("Error reading config",
 			"file", configFile,
@@ -69,7 +73,7 @@ func DaemonStart() {
 		)
 	}
 
-	cfg, err := config.ParseConfig(rawFile, log)
+	appConfig, err := cfg.ParseConfig(rawFile, log)
 	if err != nil {
 		log.Errorw("error parsing config file",
 			"file", configFile,
@@ -80,14 +84,14 @@ func DaemonStart() {
 	db := cache.Open(configCache, log)
 	log.Debug("opened db: ", configCache)
 
-	for _, r := range cfg.GitRepos {
-		git.InitialGitClone(r, log)
+	for _, r := range appConfig.GitRepos {
+		git.InitialGitCloneAndCheckout(r, log)
 	}
 
 	for {
 
 		//// from the update policies, make a list of ALL file paths which are referenced in our git repo
-		for _, gitRepo := range cfg.GitRepos {
+		for _, gitRepo := range appConfig.GitRepos {
 
 			// This sections deals with loading remote config from the git repo
 			// if RemoteConfig is set we want to attempt to read '.laminar.yaml' from the remote repo
@@ -97,7 +101,7 @@ func DaemonStart() {
 					"repo", gitRepo.Name,
 				)
 
-				remoteUpdates, err := config.GetUpdatesFromGit(repoPath, log)
+				remoteUpdates, err := cfg.GetUpdatesFromGit(repoPath, log)
 				if err != nil {
 					log.Warnw("Laminar was told to look at .laminar.yaml but failed",
 						"repo", gitRepo.Name,
@@ -130,7 +134,7 @@ func DaemonStart() {
 
 		//// TODO: docker reg Timeout?
 		//// lets gather a full list of docker images we can find matching the configured registries
-		for _, dockerReg := range cfg.DockerRegistries {
+		for _, dockerReg := range appConfig.DockerRegistries {
 			foundDockerImages := FindDockerImages(
 				fileList,
 				fmt.Sprintf(dockerReg.Reg),
@@ -153,14 +157,14 @@ func DaemonStart() {
 
 		//// this is a slice of the registry URLs as we expect to see them inside files
 		var registryStrings []string
-		for _, reg := range cfg.DockerRegistries {
+		for _, reg := range appConfig.DockerRegistries {
 			registryStrings = append(registryStrings, reg.Reg)
 		}
 
 		//// now that we can assume we have some tags in cache, we run a
 		//// loop over GitRepos
 		//
-		for _, gitRepo := range cfg.GitRepos {
+		for _, gitRepo := range appConfig.GitRepos {
 			triggerCommitAndPush := false
 			changeCount := 0
 			for _, updatePolicy := range gitRepo.Updates {
@@ -194,10 +198,12 @@ func DaemonStart() {
 			}
 
 			if triggerCommitAndPush {
-				msg := fmt.Sprintf("%s [%d]", cfg.Global.GitMessage, changeCount)
-				log.Warnw("pretending to commit",
-					"gitRepo", gitRepo)
-				git.CommitAndPush(gitRepo, cfg.Global, msg, log)
+				msg := fmt.Sprintf("%s [%d]", appConfig.Global.GitMessage, changeCount)
+				log.Infow("doing commit",
+					"gitRepo", gitRepo.URL,
+					"msg", msg,
+				)
+				git.CommitAndPush(gitRepo, appConfig.Global, msg, log)
 			}
 
 			// TODO: use a Tick() instead of this Sleep()
