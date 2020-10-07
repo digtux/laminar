@@ -33,9 +33,6 @@ func EcrGetAuth(registry cfg.DockerRegistry) (svc *ecr.ECR) {
 
 	mySession := session.Must(session.NewSession())
 	myRegion := strings.Split(registry.Reg, ".")[3]
-	//myRegistryId := strings.Split(registry.Reg, ".")[0]
-	//myRepositoryName := strings.Split(registry.Reg, "/")[1]
-
 	svc = ecr.New(mySession, aws.NewConfig().WithRegion(myRegion))
 
 	return svc
@@ -87,18 +84,26 @@ func EcrDescribeImageToCache(
 		RepositoryName: aws.String(repositoryName),
 	}
 
-	// Example sending a request using DescribeImagesRequest.
-	result, err := svc.DescribeImages(describeImageSettings)
+	var imageDetails []*ecr.ImageDetail
+
+	// page through all ECR images and add them to the imageDetails slice
+	// https://github.com/terraform-providers/terraform-provider-aws/pull/8403/files/83d482992b6c42bea36d94f14b1da6616dc81ad1
+	err := svc.DescribeImagesPages(describeImageSettings, func(page *ecr.DescribeImagesOutput, lastPage bool) bool {
+		imageDetails = append(imageDetails, page.ImageDetails...)
+		return true
+	})
+
 	if err != nil {
 		log.Fatalw("ECR DescribeImages failed",
 			"error", err,
 			"suggest", "maybe set $AWS_PROFILE?")
 	}
 
+
 	// only the AWS sdk required the "prefix/myimage" part of the repositoryName, afterwards lets remove that
 	repositoryName = strings.Split(repositoryName, "/")[1]
 
-	for _, hit := range result.ImageDetails {
+	for _, hit := range imageDetails {
 		for _, tag := range hit.ImageTags {
 			total++
 			cleanerDigest := strings.Split(*hit.ImageDigest, ":")[1]
@@ -112,12 +117,6 @@ func EcrDescribeImageToCache(
 			}
 			TagInfoToCache(*hitTagInfo, db, log)
 
-			//log.Debugw("found tag",
-			//	"fullImageName", fullImageName,
-			//	"INFO", hitTagInfo,
-			//	"reg", registry.Reg,
-			//)
-
 		}
 
 	}
@@ -125,7 +124,7 @@ func EcrDescribeImageToCache(
 		"registryUrl", registry.Reg,
 		"registryName", registry.Name,
 		"images", repositoryName,
-		"totalTags", len(result.ImageDetails),
+		"totalTags", len(imageDetails),
 	)
 	return total
 }

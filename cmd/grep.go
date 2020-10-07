@@ -81,12 +81,15 @@ func DoUpdate(
 			candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
 
 			if MatchGlob(candidateTag, patternValue) {
-				log.Debugw("Matched Globs",
-					"candidateImage", candidateImage,
-					"candidateTag", candidateTag,
-					"pattern", patternValue,
-					"type", patternType,
-				)
+				if candidateImage == "976217792753.dkr.ecr.eu-west-2.amazonaws.com/doddle/stores-v3" {
+					log.Info("blablabla===============")
+					log.Debugw("Matched Globs",
+						"candidateImage", candidateImage,
+						"candidateTag", candidateTag,
+						"pattern", patternValue,
+						"type", patternType,
+					)
+				}
 
 				// get a full list of tags for the image from our cache
 				index := "created"
@@ -96,6 +99,15 @@ func DoUpdate(
 					index,
 					log,
 				)
+				if candidateImage == "976217792753.dkr.ecr.eu-west-2.amazonaws.com/doddle/stores-v3" {
+					log.Debug(len(tagListFromDb))
+					for i, x := range tagListFromDb{
+						log.Debugw("tags found",
+							"tag", x.Tag,
+							"index",i,
+							)
+					}
+				}
 
 				// shouldChange is a bool to assist with logic later
 				// changeRequest will go into a []changeList so we can record it to db one day
@@ -183,16 +195,6 @@ func EvaluateIfImageShouldChangeGlob(
 
 				// exclude identical tags from git+registry
 				if potentialTag.Tag != currentTag {
-					//log.Debugw("new ChangeRequest",
-					//	"image", potentialTag.Image,
-					//	"newHash", potentialTag.Hash,
-					//	"oldTag", currentTag,
-					//	"newTag", potentialTag.Tag,
-					//	"patternType", "glob",
-					//	"patternValue", patternValue,
-					//	"image", image,
-					//	"file", file,
-					//)
 					cr = ChangeRequest{
 						Old:          currentTag,
 						New:          potentialTag.Tag,
