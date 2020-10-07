@@ -98,15 +98,6 @@ func DoUpdate(
 					index,
 					log,
 				)
-				if candidateImage == "976217792753.dkr.ecr.eu-west-2.amazonaws.com/doddle/stores-v3" {
-					log.Debug(len(tagListFromDb))
-					for i, x := range tagListFromDb {
-						log.Debugw("tags found",
-							"tag", x.Tag,
-							"index", i,
-						)
-					}
-				}
 
 				// shouldChange is a bool to assist with logic later
 				// changeRequest will go into a []changeList so we can record it to db one day
