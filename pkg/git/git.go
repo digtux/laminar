@@ -2,12 +2,13 @@ package git
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"go.uber.org/zap"
-	"os"
-	"strings"
 
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
@@ -50,7 +51,7 @@ func Pull(registry cfg.GitRepo, log *zap.SugaredLogger) {
 func GetRepoPath(registry cfg.GitRepo) string {
 	replacedSlash := strings.Replace(registry.Branch, "/", "-", -1)
 	replacedColon := strings.Replace(replacedSlash, ":", "-", -1)
-	return string("/home/starkers/" + registry.URL + "-" + replacedColon)
+	return string("/tmp/" + registry.URL + "-" + replacedColon)
 }
 
 // All-In-One method that will do a clone and checkout
