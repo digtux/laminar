@@ -99,7 +99,6 @@ func EcrDescribeImageToCache(
 			"suggest", "maybe set $AWS_PROFILE?")
 	}
 
-
 	// only the AWS sdk required the "prefix/myimage" part of the repositoryName, afterwards lets remove that
 	repositoryName = strings.Split(repositoryName, "/")[1]
 

@@ -27,13 +27,13 @@ type BlackList struct {
 
 // which gitRepos to operate on
 type GitRepo struct {
-	URL          string    `yaml:"url"`
-	Branch       string    `yaml:"branch"`
-	Key          string    `yaml:"key"`
-	PollFreq     int       `yaml:"pollFreq"`
-	Name         string    `yaml:"name"`
-	RemoteConfig bool      `yaml:"remoteConfig"` // propogate []Updates from remote git ".laminar.yaml" ?
-	Updates      []Updates `yaml:"updates,omitempty"`
+	URL               string    `yaml:"url"`
+	Branch            string    `yaml:"branch"`
+	Key               string    `yaml:"key"`
+	PollFreq          int       `yaml:"pollFreq"`
+	Name              string    `yaml:"name"`
+	RemoteConfig      bool      `yaml:"remoteConfig"` // propogate []Updates from remote git ".laminar.yaml" ?
+	Updates           []Updates `yaml:"updates,omitempty"`
 	PreCommitCommands []string  `yaml:"preCommitCommands,omitempty"`
 	//PostChange   []PostChanges `yaml:"postChange"`
 }

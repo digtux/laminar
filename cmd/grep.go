@@ -3,16 +3,17 @@ package cmd
 import (
 	"bufio"
 	"bytes"
-	"github.com/digtux/laminar/pkg/common"
-	"github.com/digtux/laminar/pkg/cfg"
-	"github.com/digtux/laminar/pkg/registry"
-	"github.com/gobwas/glob"
-	"github.com/tidwall/buntdb"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/common"
+	"github.com/digtux/laminar/pkg/registry"
+	"github.com/gobwas/glob"
+	"github.com/tidwall/buntdb"
+	"go.uber.org/zap"
 )
 
 // ChangeRequests is an object recording what changed and when
@@ -81,15 +82,13 @@ func DoUpdate(
 			candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
 
 			if MatchGlob(candidateTag, patternValue) {
-				if candidateImage == "976217792753.dkr.ecr.eu-west-2.amazonaws.com/doddle/stores-v3" {
-					log.Info("blablabla===============")
-					log.Debugw("Matched Globs",
-						"candidateImage", candidateImage,
-						"candidateTag", candidateTag,
-						"pattern", patternValue,
-						"type", patternType,
-					)
-				}
+
+				// log.Debugw("Matched Globs",
+				// 	"candidateImage", candidateImage,
+				// 	"candidateTag", candidateTag,
+				// 	"pattern", patternValue,
+				// 	"type", patternType,
+				// )
 
 				// get a full list of tags for the image from our cache
 				index := "created"
@@ -101,11 +100,11 @@ func DoUpdate(
 				)
 				if candidateImage == "976217792753.dkr.ecr.eu-west-2.amazonaws.com/doddle/stores-v3" {
 					log.Debug(len(tagListFromDb))
-					for i, x := range tagListFromDb{
+					for i, x := range tagListFromDb {
 						log.Debugw("tags found",
 							"tag", x.Tag,
-							"index",i,
-							)
+							"index", i,
+						)
 					}
 				}
 

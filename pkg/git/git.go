@@ -114,7 +114,7 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 	//)
 
 	w, err := r.Worktree()
-	if err != nil{
+	if err != nil {
 		log.Fatalw("unable to get Worktree of the repo",
 			"error", err,
 		)
@@ -129,15 +129,11 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 		Branch: mergeRef,
 	})
 
-	if err != nil{
+	if err != nil {
 		log.Fatalw("Error checking out branch",
 			"error", err,
 		)
 	}
-
-
-
-
 
 	//else {
 	//	log.Infof("InitialCheckout to %v success", diskPath)

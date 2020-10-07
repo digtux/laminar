@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/git"
 	"github.com/digtux/laminar/pkg/operations"
 	"go.uber.org/zap"
