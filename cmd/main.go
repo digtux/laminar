@@ -3,13 +3,14 @@ package cmd
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/digtux/laminar/pkg/cfg"
-	"github.com/digtux/laminar/pkg/git"
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 var fileList []string
@@ -40,7 +41,8 @@ func runLaminar() {
 	//log.Debug("opened db: ", configCache)
 
 	for _, r := range appConfig.GitRepos {
-		go git.InitialGitCloneAndCheckout(r, log)
+		go pretendWorker(r, log)
+		// go git.InitialGitCloneAndCheckout(r, log)
 	}
 
 	f := echo.New()
@@ -64,6 +66,16 @@ func runLaminar() {
 
 	f.Logger.Fatal(f.Start(appConfig.Global.Listener))
 
+}
+
+func pretendWorker(repo cfg.GitRepo, log *zap.SugaredLogger) {
+	for {
+		log.Infow("pretend worker triggered:",
+			"name", repo.Name,
+		)
+		time.Sleep(time.Duration(repo.PollFreq) * time.Second)
+		// * time.Second)
+	}
 }
 
 func routeHello(c echo.Context) error {
