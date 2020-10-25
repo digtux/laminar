@@ -218,13 +218,10 @@ func MatchGlob(input string, globString string) bool {
 	return g.Match(input)
 }
 
-func ReadFile(filePath string, log *zap.SugaredLogger) ([]byte, string) {
+// ReadFile returns a []byte and string of a file
+func ReadFile(filePath string) (error, []byte, string) {
 	r, err := ioutil.ReadFile(filePath)
-	stringContents := string(r)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return r, stringContents
+	return err, r, string(r)
 }
 
 // grepFile returns a slice of hits that match a string inside a file
@@ -235,15 +232,14 @@ func grepFile(file string, searchString string, log *zap.SugaredLogger) (matches
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer f.Close()
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		if bytes.Contains(scanner.Bytes(), pat) {
 			// if this matches we know the string is somewhere **within a line of text**
 			// we should split that line of text (strings.Fields) and range over those to ensure that we
 			// don't count the entire line as the actual hit
-			// This should be enough for yaml (althoug I imagine it would also detect stuff in comments)
-			// but it would be madness for a json file for example..
+			// This should be enough for yaml (it also detects stuff in comments)
+			// this would also work on a json file for example..
 			for _, field := range strings.Fields(scanner.Text()) {
 				if bytes.Contains([]byte(field), pat) {
 					// val := strings.Fields(scanner.Text())[1]
@@ -267,6 +263,13 @@ func grepFile(file string, searchString string, log *zap.SugaredLogger) (matches
 			"searchString", searchString,
 			"file", file,
 			"matches", matches,
+		)
+	}
+	err = f.Close()
+	if err != nil {
+		log.Errorw("Error closing file",
+			"file", file,
+			"error", err,
 		)
 	}
 	return matches

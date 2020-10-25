@@ -11,15 +11,18 @@ import (
 
 func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
 
-	//log.Infow("calling DoChange()",
-	//	"change", change,
-	//)
+	err, r, stringContents := ReadFile(change.File)
+	if err != nil {
+		log.Fatalw("error reading file",
+			"error", err,
+			"file", change.File,
+		)
 
-	r, stringContents := ReadFile(change.File, log)
+	}
 
 	var originalContents string
 
-	err := copier.Copy(&originalContents, &stringContents) // makes a copy of the original string contents
+	err = copier.Copy(&originalContents, &stringContents) // makes a copy of the original string contents
 	if err != nil {
 		fmt.Println(err)
 	}

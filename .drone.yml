@@ -7,26 +7,20 @@ platform:
 
 steps:
 
-# - name: tags-alpine
-#   image: bitnami/git
-#   commands:
-#   - git fetch --tags
-#   - echo "$(git describe --tags --always)-alpine" > .tags
-
-# - name: publish-alpine
-#   image: plugins/docker
-#   settings:
-#     dockerfile: Dockerfile.alpine
-#     password:
-#       from_secret: dockerhub-pass
-#     repo: "${CI_REPO}"
-#     username: digtux
+- name: tests
+  image: golang:1.14
+  commands:
+  - go get -u github.com/rakyll/gotest
+  - gotest -v ./...
 
 - name: tags-kapitan
   image: bitnami/git
   commands:
   - git fetch --tags
   - echo "$(git describe --tags --always)-kapitan" > .tags
+  when:
+    branch:
+    - master
 
 - name: publish-kapitan
   image: plugins/docker
@@ -36,6 +30,9 @@ steps:
       from_secret: dockerhub-pass
     repo: "${CI_REPO}"
     username: digtux
+  when:
+    branch:
+    - master
 
 trigger:
   branch:
