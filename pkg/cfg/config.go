@@ -7,8 +7,32 @@ import (
 	"io/ioutil"
 )
 
-//LoadFile will return a Config from a file (string)
-func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error) {
+// LoadConfig returns a Config, handles the steps to Read and Parse a file
+func LoadConfig(file string, log *zap.SugaredLogger) Config {
+
+	rawFile, err := loadFile(file, log)
+	if err != nil {
+		log.Errorw("Error reading config",
+			"file", file,
+			"error", err,
+		)
+	}
+
+	appConfig, err := parseConfig(rawFile, log)
+	if err != nil {
+		log.Errorw("error parsing config file",
+			"file", file,
+			"error", err,
+		)
+	}
+	log.Infow("config file loaded",
+		"file", file,
+	)
+	return appConfig
+}
+
+//loadFile will return a Config from a file (string)
+func loadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error) {
 	log.Debugw("reading file",
 		"fileName", fileName)
 	rawYaml, err := ioutil.ReadFile(fileName)
@@ -21,8 +45,8 @@ func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error)
 	return rawYaml, err
 }
 
-// ParseConfig will read a config and infer some defaults if they're omitted (one day)
-func ParseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
+// parseConfig will read a config and infer some defaults if they're omitted (one day)
+func parseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
 
 	var yamlConfig Config
 
@@ -44,7 +68,7 @@ func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (x RemoteUpdates, er
 	file := fmt.Sprintf(path + "/" + ".laminar.yaml")
 
 	// try to read the file
-	rawFile, err := LoadFile(file, log)
+	rawFile, err := loadFile(file, log)
 
 	if err != nil {
 		log.Errorw("Error loading file",

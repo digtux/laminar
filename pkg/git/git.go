@@ -133,12 +133,16 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 	if err != nil {
 		log.Fatalw("Error checking out branch",
 			"error", err,
+			"url", registry.URL,
+			"branch", mergeRef,
 		)
 	}
 
-	//else {
-	//	log.Infof("InitialCheckout to %v success", diskPath)
-	//}
+	log.Infow("git checkout success",
+		"url", registry.URL,
+		"branch", mergeRef,
+		"path", diskPath,
+	)
 }
 
 func GetCommitId(path string, log *zap.SugaredLogger) string {

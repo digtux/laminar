@@ -48,7 +48,7 @@ git:
     files:
     - path: inventory/classes/images-release.yml
 `)
-	result, err := ParseConfig(testData, log)
+	result, err := parseConfig(testData, log)
 	if err != nil {
 		fmt.Println(err)
 	}

@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -36,5 +37,4 @@ func init() {
 
 	flagSet := rootCmd.Flags()
 	flagSet.BoolVarP(&debug, "debug", "D", false, "enable debug logging")
-
 }
