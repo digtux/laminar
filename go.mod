@@ -7,11 +7,7 @@ require (
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/gobwas/glob v0.2.3
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
-	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mitchellh/go-homedir v1.1.0
-	github.com/rakyll/gotest v0.0.5 // indirect
 	github.com/spf13/cobra v1.0.0
-	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.5.1
 	github.com/tidwall/buntdb v1.1.2
 	go.uber.org/zap v1.15.0
