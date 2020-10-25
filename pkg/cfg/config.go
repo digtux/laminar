@@ -47,9 +47,7 @@ func loadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error)
 
 // parseConfig will read a config and infer some defaults if they're omitted (one day)
 func parseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
-
 	var yamlConfig Config
-
 	err := yaml.Unmarshal(data, &yamlConfig)
 	if err != nil {
 		log.Warnw("yaml.Unmarshal error",
@@ -58,7 +56,24 @@ func parseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
 		return Config{}, err
 	}
 
-	return yamlConfig, err
+	updatedConfig := setDefaults(yamlConfig)
+	return updatedConfig, err
+}
+
+// checks through the Config object and inserts some defaults if they've been skipped
+func setDefaults(in Config) Config {
+	if in.Global.HttpPort == 0 {
+		in.Global.HttpPort = 8080
+	}
+	if in.Global.MetricsPort == 0 {
+		in.Global.MetricsPort = 9090
+	}
+	for n, i := range in.GitRepos {
+		if i.PollFreq == 0 {
+			in.GitRepos[n].PollFreq = 60
+		}
+	}
+	return in
 }
 
 // GetUpdatesFromGit will check for a .laminar.yaml in the top level of a git repo

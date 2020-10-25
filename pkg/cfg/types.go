@@ -2,9 +2,11 @@ package cfg
 
 // Global settings such as git commit user/email
 type Global struct {
-	GitUser    string      `yaml:"gitUser"`
-	GitEmail   string      `yaml:"gitEmail"`
-	GitMessage interface{} `yaml:"gitMessage"`
+	GitUser     string      `yaml:"gitUser"`
+	GitEmail    string      `yaml:"gitEmail"`
+	GitMessage  interface{} `yaml:"gitMessage"`
+	HttpPort    int         `yaml:"httpPort,omitempty"`
+	MetricsPort int         `yaml:"metricsPort,omitempty"`
 }
 
 // Config is the top level of config
@@ -32,7 +34,7 @@ type GitRepo struct {
 	Key               string    `yaml:"key"`
 	PollFreq          int       `yaml:"pollFreq"`
 	Name              string    `yaml:"name"`
-	RemoteConfig      bool      `yaml:"remoteConfig"` // propogate []Updates from remote git ".laminar.yaml" ?
+	RemoteConfig      bool      `yaml:"remoteConfig,omitempty"`
 	Updates           []Updates `yaml:"updates,omitempty"`
 	PreCommitCommands []string  `yaml:"preCommitCommands,omitempty"`
 	//PostChange   []PostChanges `yaml:"postChange"`

@@ -51,6 +51,24 @@ func grokRegistrySettings(in cfg.DockerRegistry) cfg.DockerRegistry {
 	return in
 }
 
+// GetAll just pulls anything from a buntDB index
+func GetAllTagsByIndex(
+	db *buntdb.DB,
+	index string,
+	log *zap.SugaredLogger,
+) (result []TagInfo) {
+	db.View(func(tx *buntdb.Tx) error {
+		tx.Descend(index, func(key, val string) bool {
+			// decode the data from the db
+			x := JsonStringToTagInfo(val, log)
+			result = append(result, x)
+			return true
+		})
+		return nil
+	})
+	return result
+}
+
 func CachedImagesToTagInfoListSpecificImage(
 	db *buntdb.DB,
 	imageString string,

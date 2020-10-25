@@ -2,6 +2,7 @@ package cfg
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"testing"
 )
@@ -30,10 +31,20 @@ dockerRegistries:
 git:
 - name: monorepo1
   url: git@github.com:digtux/ray-example-kapitan.git
+  branch: feature/foo
+  key: ~/example_ssh_id_rsa
+  updates:
+
+  - pattern: "glob:master-*"
+    files:
+    - path: inventory/classes/images-staging.yml
+
+- name: monorepo2
+  url: git@github.com:digtux/ray-example-kapitan.git
   branch: master
   key: ~/example_ssh_id_rsa
-  pollFreq: 60
-  remoteConfig: false
+  pollFreq: 30
+  remoteConfig: true
   updates:
 
   - pattern: "glob:develop-*"
@@ -57,8 +68,16 @@ git:
 		t.Error("unable to see any configured registries")
 	}
 
-	if result.GitRepos[0].Branch != "master" {
-		t.Errorf("unable to read branch from config, got: %s, expected: %s", result.GitRepos[0].Branch, "master")
-	}
+	assert.Equal(t, 8080, result.Global.HttpPort)
+	assert.Equal(t, 9090, result.Global.MetricsPort)
+	assert.Equal(t, 60, result.GitRepos[0].PollFreq)
+	assert.Equal(t, 30, result.GitRepos[1].PollFreq)
+	assert.Equal(t, "feature/foo", result.GitRepos[0].Branch)
+	assert.Equal(t, "master", result.GitRepos[1].Branch)
+	assert.Equal(t, 2, len(result.GitRepos))
+	assert.Equal(t, 1, len(result.GitRepos[0].Updates))
+	assert.Equal(t, 3, len(result.GitRepos[1].Updates))
+	assert.Equal(t, false, result.GitRepos[0].RemoteConfig)
+	assert.Equal(t, true, result.GitRepos[1].RemoteConfig)
 
 }
