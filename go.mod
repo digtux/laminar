@@ -8,6 +8,7 @@ require (
 	github.com/go-git/go-git/v5 v5.1.0
 	github.com/gobwas/glob v0.2.3
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
+	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/echo-contrib v0.9.0
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/spf13/cobra v1.0.0

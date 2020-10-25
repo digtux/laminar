@@ -1,14 +1,15 @@
 package cmd
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/git"
 	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
-	"net/http"
-	"strings"
 )
 
 var fileList []string
@@ -24,21 +25,6 @@ Laminar is a GitOps utility for automating the promotion of docker images in git
 	Run: func(cmd *cobra.Command, args []string) {
 		runLaminar()
 	},
-}
-
-// decide if we want the webserver to log or not here
-func skipPath(c echo.Context) bool {
-	ignored := []string{
-		"/metrics",
-		"/healthz",
-	}
-
-	for _, x := range ignored {
-		if strings.HasPrefix(c.Path(), x) {
-			return true
-		}
-	}
-	return false
 }
 
 // DaemonStart is the main entrypoint for laminar
@@ -57,34 +43,44 @@ func runLaminar() {
 		go git.InitialGitCloneAndCheckout(r, log)
 	}
 
-	// start a new echo instance
-	e := echo.New()
+	f := echo.New()
+	// f.HideBanner = true
+	// f.HidePort = true
+	f.GET("/hello", routeHello)
 
-	p := prometheus.NewPrometheus("echo", nil)
-	p.Use(e)
+	p := prometheus.NewPrometheus("laminar", nil)
+	p.Use(f)
 
-	// hide banner and port messages at launch (we'll use a the regular logger to ensure consistency)
-	e.HideBanner = true
-	e.HidePort = true
-
-	// give the logger a "skipper" method (lets us decide if we want to ignore logging for certain contexts)
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		// https://echo.labstack.com/middleware/logger
+	// give the logger a "skipper" method
+	// this lets us decide to ignore logging certain endpoints
+	f.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
 		Skipper: skipPath,
 	}))
 
-	e.GET("/hello", routeHello)
-
-	e.GET("/healthz", func(c echo.Context) error {
-		return c.String(http.StatusOK, "ok")
-	})
-
 	// start the webserver (blocks here)
-	log.Info("starting webserver")
-	e.Logger.Fatal(e.Start(":1313"))
+	log.Infow("starting webserver",
+		"port", appConfig.Global.Listener,
+	)
+
+	f.Logger.Fatal(f.Start(appConfig.Global.Listener))
 
 }
 
 func routeHello(c echo.Context) error {
 	return c.String(http.StatusOK, "Hello, World!")
+}
+
+// decide if we want the webserver to log or not here
+func skipPath(c echo.Context) bool {
+	ignored := []string{
+		"/metrics",
+		"/healthz",
+	}
+
+	for _, x := range ignored {
+		if strings.HasPrefix(c.Path(), x) {
+			return true
+		}
+	}
+	return false
 }

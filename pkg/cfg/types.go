@@ -2,11 +2,11 @@ package cfg
 
 // Global settings such as git commit user/email
 type Global struct {
-	GitUser     string      `yaml:"gitUser"`
-	GitEmail    string      `yaml:"gitEmail"`
-	GitMessage  interface{} `yaml:"gitMessage"`
-	HttpPort    int         `yaml:"httpPort,omitempty"`
-	MetricsPort int         `yaml:"metricsPort,omitempty"`
+	GitUser    string      `yaml:"gitUser"`
+	GitEmail   string      `yaml:"gitEmail"`
+	GitMessage interface{} `yaml:"gitMessage"`
+	Listener   string      `yaml:"httpPort,omitempty"`
+	// MetricsPort string      `yaml:"metricsPort,omitempty"`
 }
 
 // Config is the top level of config

@@ -2,9 +2,10 @@ package cfg
 
 import (
 	"fmt"
+	"io/ioutil"
+
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v1"
-	"io/ioutil"
 )
 
 // LoadConfig returns a Config, handles the steps to Read and Parse a file
@@ -62,11 +63,8 @@ func parseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
 
 // checks through the Config object and inserts some defaults if they've been skipped
 func setDefaults(in Config) Config {
-	if in.Global.HttpPort == 0 {
-		in.Global.HttpPort = 8080
-	}
-	if in.Global.MetricsPort == 0 {
-		in.Global.MetricsPort = 9090
+	if in.Global.Listener == "" {
+		in.Global.Listener = ":8080"
 	}
 	for n, i := range in.GitRepos {
 		if i.PollFreq == 0 {

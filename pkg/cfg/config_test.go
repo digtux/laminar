@@ -2,9 +2,10 @@ package cfg
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
-	"testing"
 )
 
 func debugLogger() (log *zap.SugaredLogger) {
@@ -68,8 +69,7 @@ git:
 		t.Error("unable to see any configured registries")
 	}
 
-	assert.Equal(t, 8080, result.Global.HttpPort)
-	assert.Equal(t, 9090, result.Global.MetricsPort)
+	assert.Equal(t, ":8080", result.Global.Listener)
 	assert.Equal(t, 60, result.GitRepos[0].PollFreq)
 	assert.Equal(t, 30, result.GitRepos[1].PollFreq)
 	assert.Equal(t, "feature/foo", result.GitRepos[0].Branch)
