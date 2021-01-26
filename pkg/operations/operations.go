@@ -52,7 +52,7 @@ func FindFiles(searchPath string, log *zap.SugaredLogger) []string {
 	err := filepath.Walk(realPath, searchFunc)
 
 	if err != nil {
-		log.Warnw("error walking the path",
+		log.Debugw("file error",
 			"path", searchPath,
 			"error", err,
 		)
