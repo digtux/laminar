@@ -34,7 +34,7 @@ func DoUpdate(
 	registryStrings []string,
 	db *buntdb.DB,
 	log *zap.SugaredLogger,
-) (changesDone int) {
+) (changesDone []ChangeRequest) {
 
 	// split the "PatternString" (eg:  `glob:develop-*`) and determine the style
 	// TODO: do this check when loading config file
@@ -148,7 +148,7 @@ func DoUpdate(
 				"filePath", filePath,
 			)
 		}
-		return len(changeList)
+		return changeList
 
 	case "regex":
 		var changeList = []ChangeRequest{}
@@ -232,12 +232,12 @@ func DoUpdate(
 				"filePath", filePath,
 			)
 		}
-		return len(changeList)
+		return changeList
 
 	default:
 		log.Fatalf("Support for this pattern type (%s) does not exist yet (sorry)", patternType)
-		return 0
-
+		var changeList = []ChangeRequest{}
+		return changeList
 	}
 }
 

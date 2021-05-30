@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"go.uber.org/zap/zapcore"
 	"os"
+	"regexp"
 	"time"
+
+	"go.uber.org/zap/zapcore"
 
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/cfg"
@@ -166,7 +168,7 @@ func DaemonStart() {
 		//
 		for _, gitRepo := range appConfig.GitRepos {
 			triggerCommitAndPush := false
-			changeCount := 0
+			changes := []ChangeRequest{}
 			for _, updatePolicy := range gitRepo.Updates {
 				fileList = []string{}
 				// assemble a list of target files for this Update
@@ -188,17 +190,21 @@ func DaemonStart() {
 						"pattern", updatePolicy.PatternString,
 						"blacklist", updatePolicy.BlackList,
 					)
-					fileChangesHappened := DoUpdate(f, updatePolicy, registryStrings, db, log)
-					if fileChangesHappened > 0 {
+					changes = DoUpdate(f, updatePolicy, registryStrings, db, log)
+					if len(changes) > 0 {
 						triggerCommitAndPush = true
-						changeCount = changeCount + fileChangesHappened
-						fileChangesHappened = 0
 					}
 				}
 			}
 
 			if triggerCommitAndPush {
-				msg := fmt.Sprintf("%s [%d]", appConfig.Global.GitMessage, changeCount)
+				msg := ""
+				if len(changes) > 1 {
+					msg = fmt.Sprintf("%s [%d]", appConfig.Global.GitMessage, len(changes))
+				} else {
+					prettyMessage := nicerMessage(changes[0])
+					msg = fmt.Sprintf("%s", prettyMessage)
+				}
 				log.Infow("doing commit",
 					"gitRepo", gitRepo.URL,
 					"msg", msg,
@@ -213,4 +219,42 @@ func DaemonStart() {
 
 	}
 
+}
+
+func nicerMessage(request ChangeRequest) string {
+	f := truncateForwardSlash(request.File)
+	img := truncateForwardSlash(request.Image)
+	tag := truncateTag(request.New)
+	msg := fmt.Sprintf("%s: %s:%s", f, img, tag)
+	return msg
+}
+
+func truncateForwardSlash(input string) string {
+
+	re := regexp.MustCompile(`^(.*/)?(?:$|(.+?)(?:(\.[^.]*$)|$))`)
+	match := re.FindStringSubmatch(input)
+	if len(match) > 1 {
+		return match[2]
+	}
+	return input
+
+}
+
+func truncateTag(input string) string {
+
+	// only operate if the input is over 50 chars long
+	length := len(input)
+
+	if length > 50 {
+		// lets get the left side of the string, first 25 chars
+		maxLeft := 35
+		maxRight := 8
+
+		leftSide := input[0:maxLeft]
+		rightSide := input[length-maxRight : length]
+
+		result := fmt.Sprintf("%s...%s", leftSide, rightSide)
+		return result
+	}
+	return input
 }
