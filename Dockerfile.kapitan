@@ -8,7 +8,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o laminar .
 
 ###
 FROM deepmind/kapitan:0.28-ci
-RUN apt-get update && apt-get install -y bash tini
+
+RUN apt-get install -y bash tini
 
 
 ENV SSH_KEY=/config/id-rsa
