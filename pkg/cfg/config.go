@@ -1,10 +1,13 @@
 package cfg
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"reflect"
+
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v1"
-	"io/ioutil"
 )
 
 //LoadFile will return a Config from a file (string)
@@ -25,16 +28,16 @@ func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error)
 func ParseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
 
 	var yamlConfig Config
+	var empty Config
 
-	err := yaml.Unmarshal(data, &yamlConfig)
-	if err != nil {
-		log.Warnw("yaml.Unmarshal error",
-			"error", err,
-		)
-		return Config{}, err
+	_ = yaml.Unmarshal(data, &yamlConfig)
+
+	// lets return an error if an yaml.Unmarshal returned no new data
+	if reflect.DeepEqual(yamlConfig, empty) {
+		err := errors.New("no data was loaded")
+		return yamlConfig, err
 	}
-
-	return yamlConfig, err
+	return yamlConfig, nil
 }
 
 // GetUpdatesFromGit will check for a .laminar.yaml in the top level of a git repo

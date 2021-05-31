@@ -3,6 +3,8 @@ package cfg
 import (
 	"fmt"
 	"go.uber.org/zap"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -59,6 +61,25 @@ git:
 
 	if result.GitRepos[0].Branch != "master" {
 		t.Errorf("unable to read branch from config, got: %s, expected: %s", result.GitRepos[0].Branch, "master")
+	}
+
+}
+func TestParseConfigFailure(t *testing.T) {
+
+	log := debugLogger()
+	testData := []byte(`...garbage...`)
+	empty := Config{}
+	result, err := ParseConfig(testData, log)
+
+	if !reflect.DeepEqual(result, empty) {
+		t.Error("expected to load an empty struct")
+	}
+	if err == nil {
+		t.Errorf("error should not be nil")
+	} else {
+		if !strings.Contains(err.Error(), "no data was loaded") {
+			t.Errorf("expected error: 'no data was loaded', got: '%v'", err)
+		}
 	}
 
 }
