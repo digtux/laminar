@@ -4,9 +4,8 @@ go 1.15
 
 require (
 	github.com/Microsoft/go-winio v0.5.0 // indirect
-	github.com/ProtonMail/go-crypto v0.0.0-20210512092938-c05353c2d58c // indirect
 	github.com/aws/aws-sdk-go v1.31.11
-	github.com/go-git/go-git/v5 v5.4.1
+	github.com/go-git/go-git/v5 v5.3.0
 	github.com/gobwas/glob v0.2.3
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/kevinburke/ssh_config v1.1.0 // indirect
