@@ -7,9 +7,10 @@ import (
 
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/cfg"
-	"github.com/digtux/laminar/pkg/git"
+	"github.com/digtux/laminar/pkg/gitoperations"
 	"github.com/digtux/laminar/pkg/operations"
 	"github.com/digtux/laminar/pkg/registry"
+	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -52,12 +53,17 @@ var rootCmd = &cobra.Command{
 	Short: "launch laminar daemon service/server",
 	Long: `This is the laminar server and API
 
-Laminar is a GitOps utility for automating the promotion of docker images in git.
+Laminar is a GitOps utility for automating the promotion of docker images in gitoperations.
 
 .. turbulence is bad.. use laminar flow`,
 	Run: func(cmd *cobra.Command, args []string) {
 		DaemonStart()
 	},
+}
+
+type GitState struct {
+	Repo   *git.Repository
+	Cloned bool
 }
 
 func DaemonStart() {
@@ -83,18 +89,32 @@ func DaemonStart() {
 	db := cache.Open(configCache, log)
 	log.Debug("opened db: ", configCache)
 
+	var GitStateList []GitState
+
 	for _, r := range appConfig.GitRepos {
-		git.InitialGitCloneAndCheckout(r, log)
+		log.Info(appConfig)
+		repoObj := gitoperations.InitialGitCloneAndCheckout(r, log)
+		newObj := GitState{
+			Repo:   repoObj,
+			Cloned: true,
+		}
+		GitStateList = append(GitStateList, newObj)
 	}
 
 	for {
 
-		//// from the update policies, make a list of ALL file paths which are referenced in our git repo
-		for appNum, gitRepo := range appConfig.GitRepos {
+		//// from the update policies, make a list of ALL file paths which are referenced in our gitoperations repo
+		for repoNum, gitRepo := range appConfig.GitRepos {
 
-			// This sections deals with loading remote config from the git repo
+			if GitStateList[repoNum].Cloned {
+				log.Info("puuuuuuuuuulllllllllllliiiiiiiinnnnnnnnnnnggggggggggg")
+				w := GitStateList[repoNum].Repo
+				gitoperations.Pull(w, gitRepo, log)
+			}
+
+			// This sections deals with loading remote config from the gitoperations repo
 			// if RemoteConfig is set we want to attempt to read '.laminar.yaml' from the remote repo
-			repoPath := git.GetRepoPath(gitRepo)
+			repoPath := gitoperations.GetRepoPath(gitRepo)
 			if gitRepo.RemoteConfig {
 				log.Debugw("'remote config' == True.. will attempt to update config dynamically",
 					"repo", gitRepo.Name,
@@ -109,19 +129,19 @@ func DaemonStart() {
 					)
 				}
 
-				// clear out the Updates for this appNum
-				appConfig.GitRepos[appNum].Updates = []cfg.Updates{}
+				// clear out the Updates for this repoNum
+				appConfig.GitRepos[repoNum].Updates = []cfg.Updates{}
 				// now assemble that list for this run
 				for _, update := range remoteUpdates.Updates {
-					log.Infow("using 'remote config' from git repo .laminar.yaml",
+					log.Infow("using 'remote config' from gitoperations repo .laminar.yaml",
 						"update", update,
 					)
-					appConfig.GitRepos[appNum].Updates = append(appConfig.GitRepos[appNum].Updates, update)
+					appConfig.GitRepos[repoNum].Updates = append(appConfig.GitRepos[repoNum].Updates, update)
 				}
 
 			}
 			// equalise the state.. damn this needs a nice rewrite sometime
-			gitRepo = appConfig.GitRepos[appNum]
+			gitRepo = appConfig.GitRepos[repoNum]
 			log.Infow("configured for",
 				"gitRepo", gitRepo.Name,
 				"updateRules", len(gitRepo.Updates),
@@ -129,7 +149,7 @@ func DaemonStart() {
 			fileList := FileFinder(gitRepo, log)
 
 			// we are ready to dispatch this to start searching the contents of these files
-			log.Debugw("matched files in git",
+			log.Debugw("matched files in gitoperations",
 				"GitRepo", gitRepo.Name,
 				"fileList", fileList,
 			)
@@ -145,7 +165,7 @@ func DaemonStart() {
 			)
 			registry.Exec(db, dockerReg, foundDockerImages, log)
 			if len(foundDockerImages) > 0 {
-				log.Infow("found images (in git) matching a configured docker registry",
+				log.Infow("found images (in gitoperations) matching a configured docker registry",
 					"regName", dockerReg.Name,
 					"reg", dockerReg.Reg,
 					"imageCount", len(foundDockerImages),
@@ -174,8 +194,8 @@ func DaemonStart() {
 				fileList = []string{}
 				// assemble a list of target files for this Update
 				for _, p := range updatePolicy.Files {
-					// get the path of where the git repo is checked out
-					relativeGitPath := git.GetRepoPath(gitRepo)
+					// get the path of where the gitoperations repo is checked out
+					relativeGitPath := gitoperations.GetRepoPath(gitRepo)
 					// combine these
 					realPath := fmt.Sprintf("%s/%s", relativeGitPath, p.Path)
 
@@ -218,7 +238,7 @@ func DaemonStart() {
 					"gitRepo", gitRepo.URL,
 					"msg", msg,
 				)
-				git.CommitAndPush(gitRepo, appConfig.Global, msg, log)
+				gitoperations.CommitAndPush(gitRepo, appConfig.Global, msg, log)
 			}
 
 		}

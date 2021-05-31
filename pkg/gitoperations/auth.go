@@ -1,4 +1,4 @@
-package git
+package gitoperations
 
 import (
 	"go.uber.org/zap"

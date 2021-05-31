@@ -1,4 +1,4 @@
-package git
+package gitoperations
 
 import (
 	"fmt"
@@ -14,17 +14,17 @@ import (
 	"github.com/digtux/laminar/pkg/common"
 )
 
-func Pull(registry cfg.GitRepo, log *zap.SugaredLogger) {
+func Pull(stuff *git.Repository, registry cfg.GitRepo, log *zap.SugaredLogger) {
 	path := GetRepoPath(registry)
-	r, err := git.PlainOpen(path)
-	if err != nil {
-		log.Errorw("error opening repo",
-			"registry", registry,
-			"ERR", err,
-		)
-	}
+	//r, err := git.PlainOpen(path)
+	//if err != nil {
+	//	log.Errorw("error opening repo",
+	//		"registry", registry,
+	//		"ERR", err,
+	//	)
+	//}
 
-	w, err := r.Worktree()
+	w, err := stuff.Worktree()
 	if err != nil {
 		log.Fatal("Couldn't open git in %v [%v]", path, err)
 	}
@@ -43,7 +43,8 @@ func Pull(registry cfg.GitRepo, log *zap.SugaredLogger) {
 		err = nil
 	}
 	if err != nil {
-		log.Fatal("Couldn't pull.. [%v]", err)
+		log.Errorf("Couldn't pull.. [%v]", err)
+		os.Exit(1)
 	}
 	log.Debugf(GetCommitId(path, log))
 }
@@ -55,7 +56,7 @@ func GetRepoPath(registry cfg.GitRepo) string {
 }
 
 // All-In-One method that will do a clone and checkout
-func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
+func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *git.Repository {
 	diskPath := GetRepoPath(registry)
 	log.Debugw("Doing initialGitClone",
 		"url", registry.URL,
@@ -139,6 +140,8 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) {
 	//else {
 	//	log.Infof("InitialCheckout to %v success", diskPath)
 	//}
+
+	return r
 }
 
 func GetCommitId(path string, log *zap.SugaredLogger) string {

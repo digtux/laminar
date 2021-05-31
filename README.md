@@ -20,9 +20,9 @@ Step 2, you give it (git+ssh) access to your git repo:
 ```yaml
 git:
 - name: manifests
-  url: git@github.com:acmecorp/k8s-manifests.git
+  url: gitoperations@github.com:acmecorp/k8s-manifests.gitoperations
   branch: master
-  key: ~/example_ssh_id_rsa  # path to the SSH key (needed for git)
+  key: ~/example_ssh_id_rsa  # path to the SSH key (needed for gitoperations)
   pollFreq: 120              # How often to sync..
   updates: []                # list of updates (see next step)
 ```
@@ -34,7 +34,7 @@ git:
   updates:
 
   - pattern: "glob:develop-*" # will match docker tags such as "develop-1.2" or "develop-short_sha"
-    # where to look in your git repo
+    # where to look in your gitoperations repo
     files:
     - dev/  # laminar will search in directory "dev"
 ```
