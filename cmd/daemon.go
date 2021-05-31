@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap/zapcore"
-
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/git"
@@ -33,8 +31,8 @@ func startLogger(debug bool) (zapLog *zap.SugaredLogger) {
 		// Override the production Config (I personally don't see the point of using stderr
 		// https://github.com/uber-go/zap/blob/feeb9a050b31b40eec6f2470e7599eeeadfe5bdd/config.go#L119
 
-		logConfig := zap.NewDevelopmentConfig()
-		logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+		logConfig := zap.NewProductionConfig()
+		// logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		//logConfig := zap.NewProductionConfig()
 		logConfig.OutputPaths = []string{"stdout"}
 		logConfig.ErrorOutputPaths = []string{"stdout"}

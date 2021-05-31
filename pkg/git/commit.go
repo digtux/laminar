@@ -2,7 +2,6 @@ package git
 
 import (
 	"bytes"
-	"fmt"
 	"os/exec"
 	"time"
 
@@ -35,8 +34,10 @@ func executeCmd(command string, path string, log *zap.SugaredLogger) {
 	if err != nil {
 		log.Error(err)
 	}
-	fmt.Println(stdout.String())
-	// TODO: improve logging
+	log.Infow("exec",
+		"command", "sh -c "+command,
+		"output", stdout.String(),
+	)
 }
 
 func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log *zap.SugaredLogger) {
@@ -61,20 +62,21 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 	}
 
 	// auth := getAuth(registry.Key)
-	log.Debugw("time to commit git",
+	log.Infow("time to commit git",
 		"registry", registry.URL,
 		"branch", registry.Branch,
 	)
-	_, err = w.Add("./")
-	if err != nil {
-		log.Error(err, "add")
-	}
-	log.Debug("did a git add")
-	status, err := w.Status()
-	if err != nil {
-		log.Error(err, status)
-	}
+	// _, err = w.Add("./")
+	// if err != nil {
+	// 	log.Error(err, "add")
+	// }
+	// log.Debug("did a git add")
+	// status, err := w.Status()
+	// if err != nil {
+	// 	log.Error(err, status)
+	// }
 	commit, err := w.Commit(message, &git.CommitOptions{
+		All: true,
 		Author: &object.Signature{
 			Name:  global.GitUser,
 			Email: global.GitEmail,
@@ -82,12 +84,11 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 		},
 	})
 	if err != nil {
-		log.Error(err, status)
+		log.Errorw("Error doing git commit", "error", err)
 	}
-	log.Debug("git show -s")
 	obj, err := r.CommitObject(commit)
 	if err != nil {
-		log.Error(err, status)
+		log.Error(err)
 	}
 
 	log.Debug(obj)
@@ -96,7 +97,7 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 	log.Info("git push")
 	err = r.Push(&git.PushOptions{})
 	if err != nil {
-		log.Error(err, status)
+		log.Error(err)
 	}
 
 }
