@@ -49,7 +49,7 @@ func FileFinder(gitRepo cfg.GitRepo, log *zap.SugaredLogger) []string {
 		}
 
 	}
-	log.Infow("successfully found files in git",
+	log.Debugw("successfully found files in git",
 		"count", len(fileList),
 	)
 	return fileList

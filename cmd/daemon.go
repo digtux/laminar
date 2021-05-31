@@ -123,8 +123,8 @@ func DaemonStart() {
 			// equalise the state.. damn this needs a nice rewrite sometime
 			gitRepo = appConfig.GitRepos[appNum]
 			log.Infow("configured for",
-				"count", len(gitRepo.Updates),
 				"gitRepo", gitRepo.Name,
+				"updateRules", len(gitRepo.Updates),
 			)
 			fileList := FileFinder(gitRepo, log)
 

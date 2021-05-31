@@ -7,7 +7,7 @@ import (
 
 // Open instantiates a lightweight buntdb "cache"
 func Open(cacheLocation string, log *zap.SugaredLogger) (db *buntdb.DB) {
-	log.Infow("Cache initialised",
+	log.Debugw("Cache initialised",
 		"cacheLocation", cacheLocation,
 	)
 	db, err := buntdb.Open(cacheLocation)

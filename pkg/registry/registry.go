@@ -23,7 +23,7 @@ func Exec(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *z
 
 	// grok will add some defaults lest the config doesn't include em
 	registry = grokRegistrySettings(registry)
-	log.Infow("DockerRegistry worker launching",
+	log.Debugw("DockerRegistry worker launching",
 		"Registry", registry,
 	)
 

@@ -119,7 +119,7 @@ func EcrDescribeImageToCache(
 		}
 
 	}
-	log.Infow("indexing image complete",
+	log.Debugw("indexing image complete",
 		"registryUrl", registry.Reg,
 		"registryName", registry.Name,
 		"images", repositoryName,

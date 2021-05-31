@@ -138,7 +138,7 @@ func DoUpdate(
 		// All changes that occured will be in this slice
 		// TODO later: record to DB/cache
 		if len(changeList) == 0 {
-			log.Infow("no changes done",
+			log.Debugw("no changes done",
 				"changeList", changeList,
 				"filePath", filePath,
 			)
