@@ -34,7 +34,7 @@ func GetFileAbsPath(fileName string, log *zap.SugaredLogger) (result string) {
 func IsDir(path string, log *zap.SugaredLogger) bool {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		log.Info("error reading path",
+		log.Debugw("couldn't reading path",
 			"path", path,
 			"error", err,
 		)

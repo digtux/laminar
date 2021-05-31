@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"github.com/spf13/cobra"
 	"os"
+	"time"
 )
 
 var (
 	configFile  string // configuration file that laminar will read
 	debug       bool   // True enables verbose and human friendly logging
-	configCache string // bundDB cache.. either "/something.db" or ":memory"
-	//developer  string
+	configCache string // buntDB cache.. either "/something.db" or ":memory"
+	oneShot     bool   // if laminar should just run once and terminate
+	interval    time.Duration
 )
 
 func Execute() {
@@ -23,18 +25,12 @@ func Execute() {
 func init() {
 	cobra.OnInitialize()
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	rootCmd.PersistentFlags().StringVar(&configFile, "config", "config.yaml", "config file (default is 'config.yaml')")
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	//rootCmd.PersistentFlags().StringVar(&developer, "developer", "Unknown Developer!", "Developer name.")
-	rootCmd.PersistentFlags().StringVar(&configCache, "cache", "cache.db", "cache location.. also supports ':memory:'")
+	rootCmd.PersistentFlags().StringVar(&configFile, "config", "config.yaml", "yaml config file")
+	rootCmd.PersistentFlags().StringVar(&configCache, "cache", ":memory:", "cache location.. EG  'cache.db'")
+	rootCmd.PersistentFlags().DurationVar(&interval, "interval", 1*time.Minute, "interval between laminar to updating git EG: 20s, 2m, 5m, 1h20m")
 
 	flagSet := rootCmd.Flags()
 	flagSet.BoolVarP(&debug, "debug", "D", false, "enable debug logging")
+	flagSet.BoolVarP(&oneShot, "one-shot", "o", false, "only run laminar once (not as a persistent service)")
 
 }

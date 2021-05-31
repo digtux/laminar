@@ -169,7 +169,7 @@ func DaemonStart() {
 		//
 		for _, gitRepo := range appConfig.GitRepos {
 			triggerCommitAndPush := false
-			changes := []ChangeRequest{}
+			var changes []ChangeRequest
 			for _, updatePolicy := range gitRepo.Updates {
 				fileList = []string{}
 				// assemble a list of target files for this Update
@@ -221,10 +221,14 @@ func DaemonStart() {
 				git.CommitAndPush(gitRepo, appConfig.Global, msg, log)
 			}
 
-			// TODO: use a Tick() instead of this Sleep()
-			time.Sleep(10 * time.Second)
+		}
+		if oneShot {
+			log.Warnw("--one-shot detected.. laminar is now terminating")
 			os.Exit(0)
 		}
+		// TODO: use a Tick() instead of this Sleep()
+		//time.Sleep(10 * time.Second)
+		time.Sleep(interval)
 
 	}
 
