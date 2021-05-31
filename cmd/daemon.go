@@ -90,13 +90,13 @@ func DaemonStart() {
 	for {
 
 		//// from the update policies, make a list of ALL file paths which are referenced in our git repo
-		for _, gitRepo := range appConfig.GitRepos {
+		for appNum, gitRepo := range appConfig.GitRepos {
 
 			// This sections deals with loading remote config from the git repo
 			// if RemoteConfig is set we want to attempt to read '.laminar.yaml' from the remote repo
 			repoPath := git.GetRepoPath(gitRepo)
 			if gitRepo.RemoteConfig {
-				log.Debugw("Remote config True.. will attempt to update config dynamically",
+				log.Debugw("'remote config' == True.. will attempt to update config dynamically",
 					"repo", gitRepo.Name,
 				)
 
@@ -108,17 +108,21 @@ func DaemonStart() {
 						"error", err,
 					)
 				}
+
+				// clear out the Updates for this appNum
+				appConfig.GitRepos[appNum].Updates = []cfg.Updates{}
+				// now assemble that list for this run
 				for _, update := range remoteUpdates.Updates {
-					log.Debugw("adding config from git Repo",
+					log.Infow("using 'remote config' from git repo .laminar.yaml",
 						"update", update,
 					)
-
-					gitRepo.Updates = append(gitRepo.Updates, update)
-
+					appConfig.GitRepos[appNum].Updates = append(appConfig.GitRepos[appNum].Updates, update)
 				}
 
 			}
-			log.Infow("Updates configured",
+			// equalise the state.. damn this needs a nice rewrite sometime
+			gitRepo = appConfig.GitRepos[appNum]
+			log.Infow("configured for",
 				"count", len(gitRepo.Updates),
 				"gitRepo", gitRepo.Name,
 			)
@@ -182,14 +186,21 @@ func DaemonStart() {
 				}
 
 				for _, f := range fileList {
-					log.Infow("applying update policy",
+					log.Debugw("applying update policy",
 						"file", f,
 						"pattern", updatePolicy.PatternString,
 						"blacklist", updatePolicy.BlackList,
 					)
-					changes = DoUpdate(f, updatePolicy, registryStrings, db, log)
-					if len(changes) > 0 {
+					newChanges := DoUpdate(f, updatePolicy, registryStrings, db, log)
+					if len(newChanges) > 0 {
+						log.Infow("updates desired",
+							"file", f,
+							"pattern", updatePolicy.PatternString,
+						)
 						triggerCommitAndPush = true
+						for _, stuffDone := range newChanges {
+							changes = append(changes, stuffDone)
+						}
 					}
 				}
 			}
@@ -200,6 +211,7 @@ func DaemonStart() {
 					msg = fmt.Sprintf("%s [%d]", appConfig.Global.GitMessage, len(changes))
 				} else {
 					prettyMessage := nicerMessage(changes[0])
+					//fmt.Println(changes)
 					msg = fmt.Sprintf("%s", prettyMessage)
 				}
 				log.Infow("doing commit",
