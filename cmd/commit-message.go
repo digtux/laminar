@@ -33,7 +33,7 @@ func truncateTag(input string) string {
 
 	if length > 50 {
 		// lets get the left side of the string, first 25 chars
-		maxLeft := 35
+		maxLeft := 28
 		maxRight := 8
 
 		leftSide := input[0:maxLeft]

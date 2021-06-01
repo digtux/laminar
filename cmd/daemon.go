@@ -107,7 +107,6 @@ func DaemonStart() {
 		for repoNum, gitRepo := range appConfig.GitRepos {
 
 			if GitStateList[repoNum].Cloned {
-				log.Info("puuuuuuuuuulllllllllllliiiiiiiinnnnnnnnnnnggggggggggg")
 				w := GitStateList[repoNum].Repo
 				gitoperations.Pull(w, gitRepo, log)
 			}

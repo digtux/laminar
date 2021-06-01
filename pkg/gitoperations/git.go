@@ -5,9 +5,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-git/go-git/v5/plumbing"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
+
+	//"github.com/go-git/go-git/v5/plumbing"
 	"go.uber.org/zap"
 
 	"github.com/digtux/laminar/pkg/cfg"
@@ -16,27 +19,28 @@ import (
 
 func Pull(stuff *git.Repository, registry cfg.GitRepo, log *zap.SugaredLogger) {
 	path := GetRepoPath(registry)
-	//r, err := git.PlainOpen(path)
-	//if err != nil {
-	//	log.Errorw("error opening repo",
-	//		"registry", registry,
-	//		"ERR", err,
-	//	)
-	//}
+	r, err := git.PlainOpen(path)
+	if err != nil {
+		log.Errorw("error opening repo",
+			"registry", registry,
+			"ERR", err,
+		)
+	}
 
-	w, err := stuff.Worktree()
+	w, err := r.Worktree()
+	//w, err := stuff.Worktree()
 	if err != nil {
 		log.Fatal("Couldn't open git in %v [%v]", path, err)
 	}
 
-	auth := getAuth(registry.Key, log)
+	//auth := getAuth(registry.Key, log)
 	log.Debugw("pulling",
 		"registry", registry.URL,
 		"branch", registry.Branch,
 	)
 	err = w.Pull(&git.PullOptions{
 		RemoteName: "origin",
-		Auth:       auth,
+		//Auth:       auth,
 	})
 	if fmt.Sprintf("%v", err) == "already up-to-date" {
 		log.Debugf("pull success, already up-to-date")
@@ -80,9 +84,11 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 	}
 
 	r, err := git.PlainClone(diskPath, false, &git.CloneOptions{
-		URL:      registry.URL,
-		Progress: nil,
-		Auth:     auth,
+		URL:          registry.URL,
+		Progress:     nil,
+		Auth:         auth,
+		SingleBranch: true,
+		NoCheckout:   false,
 	})
 	if err != nil {
 		log.Fatalw("unable to clone the git repo",
@@ -102,19 +108,6 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 		)
 	}
 
-	//rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
-	//if err != nil {
-	//	log.Fatalw("Error resolving branch",
-	//		"branch", registry.Branch,
-	//		"error", err,
-	//		)
-	//	return
-	//}
-	//log.Infow("calculated git revision",
-	//	"branch", registry.Branch,
-	//	"rev", rev,
-	//)
-
 	w, err := r.Worktree()
 	if err != nil {
 		log.Fatalw("unable to get Worktree of the repo",
@@ -122,12 +115,12 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 		)
 	}
 
-	//rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
+	////rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
 	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
 
 	err = w.Checkout(&git.CheckoutOptions{
 		//Hash:  *rev,
-		//Force: true,
+		// Force:  true,
 		Branch: mergeRef,
 	})
 
@@ -136,10 +129,6 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 			"error", err,
 		)
 	}
-
-	//else {
-	//	log.Infof("InitialCheckout to %v success", diskPath)
-	//}
 
 	return r
 }

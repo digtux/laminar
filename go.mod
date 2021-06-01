@@ -18,3 +18,5 @@ require (
 	golang.org/x/sys v0.0.0-20210531080801-fdfd190a6549 // indirect
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
 )
+
+// replace github.com/go-git/go-git/v5 => ../../zeripath/go-git
