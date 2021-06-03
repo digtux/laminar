@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: laminar
+    owner: platform-team
+  name: laminar
+  namespace: infra-laminar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: laminar
+  template:
+    metadata:
+      labels:
+        app: laminar
+        owner: platform-team
+        runtime: golang
+    spec:
+      containers:
+      - args:
+        - --config /config/config.yaml
+        - --interval 1m
+        image: digtux/laminar:0.1-17-g8605d78-kapitan
+        name: laminar
+        # ports:
+        # - containerPort: 8080
+        #   name: http
+        # - containerPort: 9090
+        #   name: metrics
+        resources: {}
+          # limits:
+          #   cpu: 1
+          #   memory: 512Mi
+          # requests:
+          #   cpu: 500m
+          #   memory: 400Mi
+        volumeMounts:
+        - mountPath: /config
+          name: laminar-config
+          readOnly: true
+      volumes:
+      - name: laminar-config
+        secret:
+          defaultMode: 256
+          secretName: laminar-config
