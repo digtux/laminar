@@ -71,13 +71,13 @@ We love weave flux.. but it makes working with templated manifests challenging. 
 - [x] check if there are more recent docker tags are in your registry and ready to be deployed
 - [x] update your git repo with the more recent tags
 - [x] dynamically load a list of files and image:tag patterns from the remote git repos (`.laminar.yaml`)
-- [ ] add `exec` action so commands can be run after modifying git (and before the `git commit`)
-- [ ] exclude list (users can blacklist promoting specific image+tag patterns)
-- [ ] docker image + deployment manifest
+- [x] add `exec` action so commands can be run after modifying git (and before the `git commit`)
+- [x] docker image + deployment manifest
 - [ ] prometheus metrics
 
 
 # issues/todo
+- [ ] exclude list (users can blacklist promoting specific image+tag patterns).. feature untested
 - [ ] after initialCheckout(), if the (remote) git repo is reverted with a `--force` push we should handle that and re-clone
 - [ ] more tests, do this when refactoring the logic
 - [ ] the main loop is currently (MVP) and simply just a `time.Sleep()`. There is no concurrnecy/`time.Tick()` yet.
@@ -93,9 +93,10 @@ We love weave flux.. but it makes working with templated manifests challenging. 
 - [x] only operate on specific files or directories in your git repo
 - [x] multiple git repos (not tested well)
 - [ ] built in "post sync" `actions` such as: "slack alert", "github PR"
-- [ ] user configurable `actions` such as running a shell script to re-render charts
+- [x] user configurable `actions` such as running a shell script to re-render charts
 - [ ] user adjustable file exclude list
 - [ ] an api endpoint that can trigger a sync (so your CI can hit it after pushing a new image)
 - [ ] a simple gui with some info about tags and images
 - [ ] individual auth configuration available for registries (allowing support for multiple GCR and ECR)
-- [ ] other tag matching patterns, specifically: `semver` and `regex`
+- [x] other tag matching patterns, specifically: `regex`
+- [ ] other tag matching patterns, specifically: `semver`
