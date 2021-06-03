@@ -63,10 +63,10 @@ func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, l
 
 	elapsed := time.Since(timeStart)
 	log.Infow("ECR scan complete",
-		"elapsed", elapsed,
-		"totalTags", totalTags,
-		"totalImages", len(imageList),
-		"registry", registry.Reg,
+		"laminar.elapsed", elapsed,
+		"laminar.registry", registry.Reg,
+		"laminar.totalImages", len(imageList),
+		"laminar.totalTags", totalTags,
 	)
 }
 

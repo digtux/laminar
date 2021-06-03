@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/gitoperations"
@@ -29,12 +31,17 @@ func startLogger(debug bool) (zapLog *zap.SugaredLogger) {
 		sugar.Debug("debug enabled")
 		return sugar
 	} else {
-		// Override the production Config (I personally don't see the point of using stderr
-		// https://github.com/uber-go/zap/blob/feeb9a050b31b40eec6f2470e7599eeeadfe5bdd/config.go#L119
+		// Override the default zap production Config a little
+		// NewProductionConfig is json
 
 		logConfig := zap.NewProductionConfig()
-		// logConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-		//logConfig := zap.NewProductionConfig()
+		// customise the "time" field to be ISO8601
+		logConfig.EncoderConfig.TimeKey = "time"
+		logConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+		// main message data into the key "msg"
+		logConfig.EncoderConfig.MessageKey = "msg"
+
+		// stdout+sterr into stdout
 		logConfig.OutputPaths = []string{"stdout"}
 		logConfig.ErrorOutputPaths = []string{"stdout"}
 		zapLogger, err := logConfig.Build()
@@ -73,16 +80,16 @@ func DaemonStart() {
 	rawFile, err := cfg.LoadFile(configFile, log)
 	if err != nil {
 		log.Errorw("Error reading config",
-			"file", configFile,
-			"error", err,
+			"laminar.file", configFile,
+			"laminar.error", err,
 		)
 	}
 
 	appConfig, err := cfg.ParseConfig(rawFile, log)
 	if err != nil {
 		log.Errorw("error parsing config file",
-			"file", configFile,
-			"error", err,
+			"laminar.file", configFile,
+			"laminar.error", err,
 		)
 	}
 
@@ -116,15 +123,15 @@ func DaemonStart() {
 			repoPath := gitoperations.GetRepoPath(gitRepo)
 			if gitRepo.RemoteConfig {
 				log.Debugw("'remote config' == True.. will attempt to update config dynamically",
-					"repo", gitRepo.Name,
+					"laminar.repo", gitRepo.Name,
 				)
 
 				remoteUpdates, err := cfg.GetUpdatesFromGit(repoPath, log)
 				if err != nil {
 					log.Warnw("Laminar was told to look at .laminar.yaml but failed",
-						"repo", gitRepo.Name,
-						"path", repoPath,
-						"error", err,
+						"laminar.repo", gitRepo.Name,
+						"laminar.path", repoPath,
+						"laminar.error", err,
 					)
 				}
 
@@ -133,7 +140,7 @@ func DaemonStart() {
 				// now assemble that list for this run
 				for _, update := range remoteUpdates.Updates {
 					log.Infow("using 'remote config' from gitoperations repo .laminar.yaml",
-						"update", update,
+						"laminar.update", update,
 					)
 					appConfig.GitRepos[repoNum].Updates = append(appConfig.GitRepos[repoNum].Updates, update)
 				}
@@ -142,15 +149,15 @@ func DaemonStart() {
 			// equalise the state.. damn this needs a nice rewrite sometime
 			gitRepo = appConfig.GitRepos[repoNum]
 			log.Infow("configured for",
-				"gitRepo", gitRepo.Name,
-				"updateRules", len(gitRepo.Updates),
+				"laminar.gitRepo", gitRepo.Name,
+				"laminar.updateRules", len(gitRepo.Updates),
 			)
 			fileList := FileFinder(gitRepo, log)
 
 			// we are ready to dispatch this to start searching the contents of these files
 			log.Debugw("matched files in gitoperations",
-				"GitRepo", gitRepo.Name,
-				"fileList", fileList,
+				"laminar.GitRepo", gitRepo.Name,
+				"laminar.fileList", fileList,
 			)
 		}
 
@@ -165,14 +172,14 @@ func DaemonStart() {
 			registry.Exec(db, dockerReg, foundDockerImages, log)
 			if len(foundDockerImages) > 0 {
 				log.Infow("found images (in gitoperations) matching a configured docker registry",
-					"regName", dockerReg.Name,
-					"reg", dockerReg.Reg,
-					"imageCount", len(foundDockerImages),
+					"laminar.regName", dockerReg.Name,
+					"laminar.reg", dockerReg.Reg,
+					"laminar.imageCount", len(foundDockerImages),
 				)
 			} else {
 				log.Infow("no images tags found.. ensure the full <image>:<tag> strings present",
-					"regName", dockerReg.Name,
-					"reg", dockerReg.Reg,
+					"laminar.regName", dockerReg.Name,
+					"laminar.reg", dockerReg.Reg,
 				)
 			}
 		}
@@ -206,15 +213,15 @@ func DaemonStart() {
 
 				for _, f := range fileList {
 					log.Debugw("applying update policy",
-						"file", f,
-						"pattern", updatePolicy.PatternString,
-						"blacklist", updatePolicy.BlackList,
+						"laminar.file", f,
+						"laminar.pattern", updatePolicy.PatternString,
+						"laminar.blacklist", updatePolicy.BlackList,
 					)
 					newChanges := DoUpdate(f, updatePolicy, registryStrings, db, log)
 					if len(newChanges) > 0 {
 						log.Infow("updates desired",
-							"file", f,
-							"pattern", updatePolicy.PatternString,
+							"laminar.file", f,
+							"laminar.pattern", updatePolicy.PatternString,
 						)
 						triggerCommitAndPush = true
 						for _, stuffDone := range newChanges {
@@ -234,15 +241,15 @@ func DaemonStart() {
 					msg = fmt.Sprintf("%s", prettyMessage)
 				}
 				log.Infow("doing commit",
-					"gitRepo", gitRepo.URL,
-					"msg", msg,
+					"laminar.gitRepo", gitRepo.URL,
+					"laminar.msg", msg,
 				)
 				gitoperations.CommitAndPush(gitRepo, appConfig.Global, msg, log)
 			}
 
 		}
 		if oneShot {
-			log.Warnw("--one-shot detected.. laminar is now terminating")
+			log.Warn("--one-shot detected.. laminar is now terminating")
 			os.Exit(0)
 		}
 		// TODO: use a Tick() instead of this Sleep()

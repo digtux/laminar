@@ -11,10 +11,6 @@ import (
 
 func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
 
-	//log.Infow("calling DoChange()",
-	//	"change", change,
-	//)
-
 	r, stringContents := ReadFile(change.File, log)
 
 	var originalContents string

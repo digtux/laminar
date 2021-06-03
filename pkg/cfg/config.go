@@ -17,7 +17,7 @@ func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error)
 	rawYaml, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		log.Warnw("couldn't read file",
-			"fileName", fileName,
+			"larminar.fileName", fileName,
 		)
 		return nil, err
 	}
@@ -51,8 +51,8 @@ func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (x RemoteUpdates, er
 
 	if err != nil {
 		log.Errorw("Error loading file",
-			"file", path,
-			"error", err,
+			"laminar.file", path,
+			"laminar.error", err,
 		)
 	}
 
@@ -60,8 +60,8 @@ func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (x RemoteUpdates, er
 	x, err = ParseUpdates(rawFile, log)
 	if err != nil {
 		log.Warnw("Reading updates from remote Repo failed",
-			"file", path,
-			"error", err,
+			"laminar.file", path,
+			"laminar.error", err,
 		)
 		return RemoteUpdates{}, err
 	}
@@ -76,7 +76,7 @@ func ParseUpdates(data []byte, log *zap.SugaredLogger) (RemoteUpdates, error) {
 	err := yaml.Unmarshal(data, &yamlUpdates)
 	if err != nil {
 		log.Warnw("yaml.Unmarshal error",
-			"error", err,
+			"larminar.error", err,
 		)
 		return RemoteUpdates{}, err
 	}

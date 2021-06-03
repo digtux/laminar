@@ -3,11 +3,12 @@ package operations
 import (
 	"bufio"
 	"bytes"
-	"github.com/digtux/laminar/pkg/common"
-	"go.uber.org/zap"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/digtux/laminar/pkg/common"
+	"go.uber.org/zap"
 )
 
 // FindFiles returns a slice containing paths to all files found in a directory
@@ -41,7 +42,7 @@ func FindFiles(searchPath string, log *zap.SugaredLogger) []string {
 				result = append(result, pathX)
 			default:
 				log.Warnw("file not yaml, ignoring",
-					"path", pathX)
+					"laminar.path", pathX)
 			}
 		}
 

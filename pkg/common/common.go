@@ -1,11 +1,12 @@
 package common
 
 import (
-	"go.uber.org/zap"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+
+	"go.uber.org/zap"
 )
 
 // Misc helper functions
@@ -48,7 +49,7 @@ func IsFile(path string, log *zap.SugaredLogger) bool {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
 		log.Warnw("found not to be a operations",
-			"path", path,
+			"larminar.path", path,
 		)
 		return false
 	}

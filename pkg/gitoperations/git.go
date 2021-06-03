@@ -22,8 +22,8 @@ func Pull(stuff *git.Repository, registry cfg.GitRepo, log *zap.SugaredLogger) {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		log.Errorw("error opening repo",
-			"registry", registry,
-			"ERR", err,
+			"laminar.registry", registry,
+			"laminar.error", err,
 		)
 	}
 
