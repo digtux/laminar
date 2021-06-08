@@ -95,8 +95,13 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 	// push using default options
 	log.Info("git push")
 	err = r.Push(&git.PushOptions{})
+	// TODO: handle this error by re-cloning the repo or similar
+	// TODO: don't handle this untill there are prometheus metrics to alert us of issues
 	if err != nil {
-		log.Error(err, status)
+		log.Fatalw("Something terrible happened!!!!",
+			"error", err,
+			"status", status,
+		)
 	}
 
 }
