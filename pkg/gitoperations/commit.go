@@ -2,6 +2,7 @@ package gitoperations
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"time"
 
@@ -105,5 +106,6 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 		log.Fatalw("Something terrible happened!!!!",
 			"error", err,
 		)
+		os.Exit(1)
 	}
 }
