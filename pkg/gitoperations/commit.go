@@ -2,6 +2,7 @@ package gitoperations
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"time"
 
@@ -100,7 +101,11 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 	)
 	err = r.Push(&git.PushOptions{})
 	if err != nil {
-		log.Error(err)
+		// TODO: handle this error by re-cloning the repo or similar
+		// TODO: don't handle this untill there are prometheus metrics to alert us of issues
+		log.Fatalw("Something terrible happened!!!!",
+			"error", err,
+		)
+		os.Exit(1)
 	}
-
 }
