@@ -82,6 +82,7 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 			)
 		}
 	}
+	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
 
 	r, err := git.PlainClone(diskPath, false, &git.CloneOptions{
 		URL:          registry.URL,
@@ -89,6 +90,7 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 		Auth:         auth,
 		SingleBranch: true,
 		NoCheckout:   false,
+		ReferenceName: mergeRef,
 	})
 	if err != nil {
 		log.Fatalw("unable to clone the git repo",
@@ -114,9 +116,6 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 			"error", err,
 		)
 	}
-
-	////rev , err := r.ResolveRevision(plumbing.Revision(registry.Branch))
-	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
 
 	err = w.Checkout(&git.CheckoutOptions{
 		//Hash:  *rev,
