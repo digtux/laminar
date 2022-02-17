@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -18,11 +19,11 @@ type Event struct {
 	Name string
 }
 
-type EventJSON struct {
+type GitHubWebHookJSON struct {
 	Action  string `json:"action"`
 	Comment struct {
 		Body      string `json:"body"`
-		UpdatedAt string `json:"updated_at"`
+		//UpdatedAt string `json:"updated_at"`
 		User      struct {
 			Login string `json:"login"`
 		} `json:"user"`
@@ -44,15 +45,19 @@ type EventJSON struct {
 	} `json:"sender"`
 }
 
-func StartWeb(log *zap.SugaredLogger, lastPause *time.Time) {
-	ghWebHookPath := "/"
+func StartWeb(log *zap.SugaredLogger, lastPause *time.Time, githubToken string){
+	ghWebHookPath := fmt.Sprintf("/webhooks/github/%s", githubToken)
 	e := echo.New()
 	e.HideBanner = true
+
+	e.GET("/healthz", func(c echo.Context) (err error){
+		return c.String(http.StatusOK, "ok")
+	})
 
 	e.POST(ghWebHookPath, func(c echo.Context) (err error) {
 		isComment := isIssueComment(c.Request().Header)
 		if isComment {
-			u := new(EventJSON)
+			u := new(GitHubWebHookJSON)
 			if err := c.Bind(u); err != nil {
 				log.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
 			}
@@ -67,6 +72,7 @@ func StartWeb(log *zap.SugaredLogger, lastPause *time.Time) {
 					"status", "laminar instructed to pause",
 				)
 				*lastPause = time.Now()
+				return c.String(http.StatusOK, "laminar paused")
 			}
 		} else {
 			log.Infow("webhook",

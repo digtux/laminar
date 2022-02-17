@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/digtux/laminar/pkg/web"
 	"os"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/digtux/laminar/pkg/gitoperations"
 	"github.com/digtux/laminar/pkg/operations"
 	"github.com/digtux/laminar/pkg/registry"
-	"github.com/digtux/laminar/pkg/web"
 	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -54,10 +54,12 @@ func startLogger(debug bool) (zapLog *zap.SugaredLogger) {
 	}
 }
 
-// always more than 24hrs ago so we don't accidentally pause on launch
-// we'll update this variable live should we wanna pause laminar pushing to git for awhile
-var lastPauseTime = time.Now().Add(-1 * time.Minute)
-var pauseDuration = 2 * time.Minute
+// set the lastPauseTime somewhere far in the past
+// when laminar is asked to pause, the web server will update this global
+var lastPauseTime = time.Now().Add(-24 * time.Hour)
+
+//// how long to pause for
+//var pauseDuration = 5 * time.Minute
 
 var fileList []string
 
@@ -101,10 +103,6 @@ func DaemonStart() {
 		)
 	}
 
-	go web.StartWeb(log, &lastPauseTime)
-
-	//since := 1 * time.Minute
-
 	appConfig, err := cfg.ParseConfig(rawFile, log)
 	if err != nil {
 		log.Errorw("error parsing config file",
@@ -112,6 +110,8 @@ func DaemonStart() {
 			"laminar.error", err,
 		)
 	}
+
+	go web.StartWeb(log, &lastPauseTime, appConfig.Global.GitHubToken)
 
 	db := cache.Open(configCache, log)
 	log.Debug("opened db: ", configCache)
@@ -129,6 +129,20 @@ func DaemonStart() {
 	}
 
 	for {
+
+		log.Debugw("pause state",
+			"shouldPause: ", shouldPause(lastPauseTime, pauseDuration),
+		)
+
+		// don't do changes if "laminar pause" has been requested recently
+		for shouldPause(lastPauseTime, pauseDuration) {
+			log.Infow("laminar paused",
+				"lastPauseTime", lastPauseTime,
+				"pauseDuration", pauseDuration,
+				"shouldPause", shouldPause(lastPauseTime, pauseDuration),
+			)
+			time.Sleep(10 * time.Second)
+		}
 
 		//// from the update policies, make a list of ALL file paths which are referenced in our gitoperations repo
 		for repoNum, gitRepo := range appConfig.GitRepos {
@@ -238,8 +252,6 @@ func DaemonStart() {
 						"laminar.blacklist", updatePolicy.BlackList,
 					)
 					newChanges := DoUpdate(f, updatePolicy, registryStrings, db, log)
-					// don't do changes if "laminar pause" has been requested recently
-					if !shouldPause(lastPauseTime, pauseDuration) {
 						if len(newChanges) > 0 {
 							log.Infow("updates desired",
 								"laminar.file", f,
@@ -250,7 +262,7 @@ func DaemonStart() {
 								changes = append(changes, stuffDone)
 							}
 						}
-					}
+
 				}
 			}
 
@@ -271,10 +283,10 @@ func DaemonStart() {
 			}
 
 		}
-		//if oneShot {
-		//	log.Warn("--one-shot detected.. laminar is now terminating")
-		//	os.Exit(0)
-		//}
+		if oneShot {
+			log.Warn("--one-shot detected.. laminar is now terminating")
+			os.Exit(0)
+		}
 		// TODO: use a Tick() instead of this Sleep()
 		//time.Sleep(10 * time.Second)
 		time.Sleep(interval)

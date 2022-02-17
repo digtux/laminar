@@ -22,6 +22,7 @@ global:
   gitUser: Laminar
   gitEmail: laminar@example.org
   gitMessage: automated promotion
+  gitHubToken: somethingrandom
 
 dockerRegistries:
 - reg: gcr.io/orgname
@@ -53,6 +54,10 @@ git:
 	result, err := ParseConfig(testData, log)
 	if err != nil {
 		fmt.Println(err)
+	}
+
+	if result.Global.GitHubToken != "somethingrandom" {
+		t.Error("wasn't able to read the global.gitHubToken")
 	}
 
 	if len(result.DockerRegistries) < 0 {

@@ -2,10 +2,12 @@ package cfg
 
 // Global settings such as git commit user/email
 type Global struct {
-	GitUser    string      `yaml:"gitUser"`
-	GitEmail   string      `yaml:"gitEmail"`
-	GitMessage interface{} `yaml:"gitMessage"`
+	GitUser    string       `yaml:"gitUser"`
+	GitEmail   string       `yaml:"gitEmail"`
+	GitMessage interface{}  `yaml:"gitMessage"`
+	GitHubToken string      `yaml:"gitHubToken"`
 }
+
 
 // Config is the top level of config
 type Config struct {
@@ -14,7 +16,7 @@ type Config struct {
 	Global           Global           `yaml:"global"`
 }
 
-// DockerRegistries contains info about the docker registries
+// DockerRegistry contains info about the docker registries
 type DockerRegistry struct {
 	Reg     string `yaml:"reg"`
 	Name    string `yaml:"name"`
@@ -25,7 +27,7 @@ type BlackList struct {
 	Pattern string `yaml:"pattern"`
 }
 
-// which gitRepos to operate on
+// GitRepo which laminar operates on
 type GitRepo struct {
 	URL               string    `yaml:"url"`
 	Branch            string    `yaml:"branch"`
