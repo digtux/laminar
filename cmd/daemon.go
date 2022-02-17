@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/digtux/laminar/pkg/web"
 	"os"
 	"time"
 
@@ -53,6 +54,13 @@ func startLogger(debug bool) (zapLog *zap.SugaredLogger) {
 	}
 }
 
+// set the lastPauseTime somewhere far in the past
+// when laminar is asked to pause, the web server will update this global
+var lastPauseTime = time.Now().Add(-24 * time.Hour)
+
+//// how long to pause for
+//var pauseDuration = 5 * time.Minute
+
 var fileList []string
 
 var rootCmd = &cobra.Command{
@@ -71,6 +79,16 @@ Laminar is a GitOps utility for automating the promotion of docker images in git
 type GitState struct {
 	Repo   *git.Repository
 	Cloned bool
+}
+
+// if the pauseTime (subtracted from time.Now()) is less than diff emit false
+func shouldPause(pauseTime time.Time, diff time.Duration) bool {
+	now := time.Now()
+	realDiff := now.Sub(pauseTime)
+	if diff > realDiff {
+		return true
+	}
+	return false
 }
 
 func DaemonStart() {
@@ -93,6 +111,8 @@ func DaemonStart() {
 		)
 	}
 
+	go web.StartWeb(log, &lastPauseTime, appConfig.Global.GitHubToken)
+
 	db := cache.Open(configCache, log)
 	log.Debug("opened db: ", configCache)
 
@@ -109,6 +129,20 @@ func DaemonStart() {
 	}
 
 	for {
+
+		log.Debugw("pause state",
+			"shouldPause: ", shouldPause(lastPauseTime, pauseDuration),
+		)
+
+		// don't do changes if "laminar pause" has been requested recently
+		for shouldPause(lastPauseTime, pauseDuration) {
+			log.Infow("laminar paused",
+				"lastPauseTime", lastPauseTime,
+				"pauseDuration", pauseDuration,
+				"shouldPause", shouldPause(lastPauseTime, pauseDuration),
+			)
+			time.Sleep(10 * time.Second)
+		}
 
 		//// from the update policies, make a list of ALL file paths which are referenced in our gitoperations repo
 		for repoNum, gitRepo := range appConfig.GitRepos {
@@ -218,16 +252,17 @@ func DaemonStart() {
 						"laminar.blacklist", updatePolicy.BlackList,
 					)
 					newChanges := DoUpdate(f, updatePolicy, registryStrings, db, log)
-					if len(newChanges) > 0 {
-						log.Infow("updates desired",
-							"laminar.file", f,
-							"laminar.pattern", updatePolicy.PatternString,
-						)
-						triggerCommitAndPush = true
-						for _, stuffDone := range newChanges {
-							changes = append(changes, stuffDone)
+						if len(newChanges) > 0 {
+							log.Infow("updates desired",
+								"laminar.file", f,
+								"laminar.pattern", updatePolicy.PatternString,
+							)
+							triggerCommitAndPush = true
+							for _, stuffDone := range newChanges {
+								changes = append(changes, stuffDone)
+							}
 						}
-					}
+
 				}
 			}
 
