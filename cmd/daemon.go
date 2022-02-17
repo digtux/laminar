@@ -12,6 +12,7 @@ import (
 	"github.com/digtux/laminar/pkg/gitoperations"
 	"github.com/digtux/laminar/pkg/operations"
 	"github.com/digtux/laminar/pkg/registry"
+	"github.com/digtux/laminar/pkg/web"
 	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -53,6 +54,11 @@ func startLogger(debug bool) (zapLog *zap.SugaredLogger) {
 	}
 }
 
+// always more than 24hrs ago so we don't accidentally pause on launch
+// we'll update this variable live should we wanna pause laminar pushing to git for awhile
+var lastPauseTime = time.Now().Add(-1 * time.Minute)
+var pauseDuration = 2 * time.Minute
+
 var fileList []string
 
 var rootCmd = &cobra.Command{
@@ -73,6 +79,16 @@ type GitState struct {
 	Cloned bool
 }
 
+// if the pauseTime (subtracted from time.Now()) is less than diff emit false
+func shouldPause(pauseTime time.Time, diff time.Duration) bool {
+	now := time.Now()
+	realDiff := now.Sub(pauseTime)
+	if diff > realDiff {
+		return true
+	}
+	return false
+}
+
 func DaemonStart() {
 
 	log := startLogger(debug)
@@ -84,6 +100,10 @@ func DaemonStart() {
 			"laminar.error", err,
 		)
 	}
+
+	go web.StartWeb(log, &lastPauseTime)
+
+	//since := 1 * time.Minute
 
 	appConfig, err := cfg.ParseConfig(rawFile, log)
 	if err != nil {
@@ -218,14 +238,17 @@ func DaemonStart() {
 						"laminar.blacklist", updatePolicy.BlackList,
 					)
 					newChanges := DoUpdate(f, updatePolicy, registryStrings, db, log)
-					if len(newChanges) > 0 {
-						log.Infow("updates desired",
-							"laminar.file", f,
-							"laminar.pattern", updatePolicy.PatternString,
-						)
-						triggerCommitAndPush = true
-						for _, stuffDone := range newChanges {
-							changes = append(changes, stuffDone)
+					// don't do changes if "laminar pause" has been requested recently
+					if !shouldPause(lastPauseTime, pauseDuration) {
+						if len(newChanges) > 0 {
+							log.Infow("updates desired",
+								"laminar.file", f,
+								"laminar.pattern", updatePolicy.PatternString,
+							)
+							triggerCommitAndPush = true
+							for _, stuffDone := range newChanges {
+								changes = append(changes, stuffDone)
+							}
 						}
 					}
 				}
@@ -248,10 +271,10 @@ func DaemonStart() {
 			}
 
 		}
-		if oneShot {
-			log.Warn("--one-shot detected.. laminar is now terminating")
-			os.Exit(0)
-		}
+		//if oneShot {
+		//	log.Warn("--one-shot detected.. laminar is now terminating")
+		//	os.Exit(0)
+		//}
 		// TODO: use a Tick() instead of this Sleep()
 		//time.Sleep(10 * time.Second)
 		time.Sleep(interval)

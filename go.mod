@@ -9,13 +9,12 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/kevinburke/ssh_config v1.1.0 // indirect
+	github.com/labstack/echo/v4 v4.6.3 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/tidwall/buntdb v1.1.2
 	go.uber.org/zap v1.15.0
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5 // indirect
-	golang.org/x/sys v0.0.0-20210531080801-fdfd190a6549 // indirect
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
 )
 
