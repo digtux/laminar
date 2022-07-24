@@ -80,7 +80,6 @@ type GitState struct {
 }
 
 type Daemon struct {
-	pauseTime        time.Time
 	logger           *zap.SugaredLogger
 	registryClient   *registry.Client
 	webClient        *web.Client
@@ -100,7 +99,6 @@ func New() (*Daemon, error) {
 	}
 	cacheDb := cache.Open(configCache, logger)
 	return &Daemon{
-		pauseTime:        time.Unix(0, 0),
 		logger:           logger,
 		registryClient:   registry.New(logger, cacheDb),
 		gitState:         initialiseState(appConfig, logger),
