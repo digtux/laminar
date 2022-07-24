@@ -16,7 +16,6 @@ func debugLogger() (log *zap.SugaredLogger) {
 
 func TestParseConfig(t *testing.T) {
 
-	log := debugLogger()
 	testData := []byte(`---
 global:
   gitUser: Laminar
@@ -51,7 +50,7 @@ git:
     files:
     - path: inventory/classes/images-release.yml
 `)
-	result, err := ParseConfig(testData, log)
+	result, err := ParseConfig(testData)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -71,10 +70,9 @@ git:
 }
 func TestParseConfigFailure(t *testing.T) {
 
-	log := debugLogger()
 	testData := []byte(`...garbage...`)
 	empty := Config{}
-	result, err := ParseConfig(testData, log)
+	result, err := ParseConfig(testData)
 
 	if !reflect.DeepEqual(result, empty) {
 		t.Error("expected to load an empty struct")

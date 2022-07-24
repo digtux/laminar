@@ -28,7 +28,7 @@ type ChangeRequest struct {
 	File         string    `json:"file"`
 }
 
-func DoUpdate(
+func doUpdate(
 	filePath string,
 	updates cfg.Updates,
 	registryStrings []string,

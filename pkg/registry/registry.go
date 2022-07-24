@@ -18,18 +18,30 @@ type TagInfo struct {
 	Tag     string    `json:"tag"`
 }
 
+type Client struct {
+	db     *buntdb.DB
+	logger *zap.SugaredLogger
+}
+
+func New(logger *zap.SugaredLogger, db *buntdb.DB) *Client {
+	return &Client{
+		logger: logger,
+		db:     db,
+	}
+}
+
 // Exec will check if we support that docker reg and then launch an appropriate worker
-func Exec(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
+func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) {
 
 	// grok will add some defaults lest the config doesn't include em
 	registry = grokRegistrySettings(registry)
-	log.Debugw("DockerRegistry worker launching",
+	c.logger.Debugw("DockerRegistry worker launching",
 		"Registry", registry,
 	)
 
 	// Check if the image looks like an ECR image
 	if strings.Contains(registry.Reg, "ecr") {
-		EcrWorker(db, registry, imageList, log)
+		EcrWorker(c.db, registry, imageList, c.logger)
 		return
 	}
 
@@ -38,7 +50,7 @@ func Exec(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *z
 		return
 	}
 
-	log.Fatal("unable to figure out which kind of registry you have")
+	c.logger.Fatal("unable to figure out which kind of registry you have")
 }
 
 // incase some fields are missing, lets set their defaults

@@ -17,7 +17,7 @@ import (
 	"github.com/digtux/laminar/pkg/common"
 )
 
-func Pull(stuff *git.Repository, registry cfg.GitRepo, log *zap.SugaredLogger) {
+func Pull(registry cfg.GitRepo, log *zap.SugaredLogger) {
 	path := GetRepoPath(registry)
 	r, err := git.PlainOpen(path)
 	if err != nil {
@@ -40,8 +40,9 @@ func Pull(stuff *git.Repository, registry cfg.GitRepo, log *zap.SugaredLogger) {
 	)
 	err = w.Pull(&git.PullOptions{
 		RemoteName: "origin",
-		//Auth:       auth,
+		Depth:      1,
 	})
+	// TODO: replace with err.Error() and check if functions the same
 	if fmt.Sprintf("%v", err) == "already up-to-date" {
 		log.Debugf("pull success, already up-to-date")
 		err = nil
@@ -85,11 +86,11 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
 
 	r, err := git.PlainClone(diskPath, false, &git.CloneOptions{
-		URL:          registry.URL,
-		Progress:     nil,
-		Auth:         auth,
-		SingleBranch: true,
-		NoCheckout:   false,
+		URL:           registry.URL,
+		Progress:      nil,
+		Auth:          auth,
+		SingleBranch:  true,
+		NoCheckout:    false,
 		ReferenceName: mergeRef,
 	})
 	if err != nil {

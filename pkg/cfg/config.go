@@ -25,7 +25,7 @@ func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error)
 }
 
 // ParseConfig will read a config and infer some defaults if they're omitted (one day)
-func ParseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
+func ParseConfig(data []byte) (Config, error) {
 
 	var yamlConfig Config
 	var empty Config
@@ -42,7 +42,7 @@ func ParseConfig(data []byte, log *zap.SugaredLogger) (Config, error) {
 
 // GetUpdatesFromGit will check for a .laminar.yaml in the top level of a git repo
 // and attempt to return []Updates from there
-func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (x RemoteUpdates, err error) {
+func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (updates RemoteUpdates, err error) {
 	// construct what we would expect the .laminar.yaml file to be in the git repo
 	file := fmt.Sprintf(path + "/" + ".laminar.yaml")
 
@@ -57,7 +57,7 @@ func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (x RemoteUpdates, er
 	}
 
 	// try to extract what we expect from the file
-	x, err = ParseUpdates(rawFile, log)
+	updates, err = ParseUpdates(rawFile, log)
 	if err != nil {
 		log.Warnw("Reading updates from remote Repo failed",
 			"laminar.file", path,
@@ -65,7 +65,7 @@ func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (x RemoteUpdates, er
 		)
 		return RemoteUpdates{}, err
 	}
-	return x, err
+	return updates, err
 }
 
 // ParseUpdates will read the .laminar.yaml from a repo and return its RemoteUpdates
