@@ -69,7 +69,7 @@ Laminar is a GitOps utility for automating the promotion of docker images in git
 		if err != nil {
 			panic(err)
 		}
-		d.DaemonStart()
+		d.Start()
 	},
 }
 
@@ -101,19 +101,13 @@ func New() (*Daemon, error) {
 	return &Daemon{
 		logger:           logger,
 		registryClient:   registry.New(logger, cacheDb),
-		gitState:         initialiseState(appConfig, logger),
+		gitState:         getInitialState(appConfig, logger),
 		webClient:        web.New(logger, appConfig.Global.GitHubToken),
 		cacheDb:          cacheDb,
 		dockerRegistries: appConfig.DockerRegistries,
 		gitConfig:        appConfig.Global,
 		gitClient:        gitoperations.New(logger, appConfig.Global),
 	}, nil
-}
-
-func (d *Daemon) DaemonStart() {
-	go d.webClient.StartWeb()
-	d.logger.Debug("opened db: ", configCache)
-	d.enterControlLoop()
 }
 
 func loadConfig(logger *zap.SugaredLogger) (appConfig cfg.Config, err error) {
@@ -134,18 +128,23 @@ func loadConfig(logger *zap.SugaredLogger) (appConfig cfg.Config, err error) {
 	return
 }
 
-func initialiseState(cfg cfg.Config, logger *zap.SugaredLogger) []GitState {
-	GitStateList := make([]GitState, len(cfg.GitRepos))
-	for i, r := range cfg.GitRepos {
-		repoObj := gitoperations.InitialGitCloneAndCheckout(r, logger)
-		newObj := GitState{
+func getInitialState(cfg cfg.Config, logger *zap.SugaredLogger) []GitState {
+	gitStateList := make([]GitState, len(cfg.GitRepos))
+	for i, repoCfg := range cfg.GitRepos {
+		repoObj := gitoperations.InitialGitCloneAndCheckout(repoCfg, logger)
+		gitStateList[i] = GitState{
 			Repo:    repoObj,
 			Cloned:  true,
-			repoCfg: &r,
+			repoCfg: &repoCfg,
 		}
-		GitStateList[i] = newObj
 	}
-	return GitStateList
+	return gitStateList
+}
+
+func (d *Daemon) Start() {
+	go d.webClient.StartWeb()
+	d.logger.Debug("opened db: ", configCache)
+	d.enterControlLoop()
 }
 
 func (d *Daemon) enterControlLoop() {
@@ -184,21 +183,11 @@ func (d *Daemon) masterTask() {
 	// loop over GitRepos
 	for _, state := range d.gitState {
 		d.updateFiles(*state.repoCfg)
-
 	}
 	if oneShot {
 		d.logger.Warn("--one-shot detected.. laminar is now terminating")
 		os.Exit(0)
 	}
-}
-
-func getRegistryStrings(dockerRegistries []cfg.DockerRegistry) []string {
-	// this is a slice of the registry URLs as we expect to see them inside files
-	var registryStrings []string
-	for _, reg := range dockerRegistries {
-		registryStrings = append(registryStrings, reg.Reg)
-	}
-	return registryStrings
 }
 
 func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
@@ -282,7 +271,6 @@ func (d *Daemon) scanDockerRegistries() {
 			)
 		}
 	}
-
 }
 
 func (d *Daemon) updateRepoStates(state GitState) {
@@ -334,4 +322,13 @@ func (d *Daemon) updateRepoStates(state GitState) {
 
 func (d *Daemon) scanNow(repo string) {
 	//todo: implement
+}
+
+func getRegistryStrings(dockerRegistries []cfg.DockerRegistry) []string {
+	// this is a slice of the registry URLs as we expect to see them inside files
+	var registryStrings []string
+	for _, reg := range dockerRegistries {
+		registryStrings = append(registryStrings, reg.Reg)
+	}
+	return registryStrings
 }
