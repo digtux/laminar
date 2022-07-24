@@ -2,13 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/web"
 	"github.com/pkg/errors"
 	"github.com/tidwall/buntdb"
 	"os"
 	"time"
-
-	"go.uber.org/zap/zapcore"
 
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/cfg"
@@ -19,42 +18,6 @@ import (
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
-
-// switch between a vanilla Development or Production logging format (--debug)
-// The only change from vanilla zap is the ProductionConfig outputs to stdout instead of stderr
-func startLogger(debug bool) (zapLog *zap.SugaredLogger) {
-	// https://blog.sandipb.net/2018/05/02/using-zap-simple-use-cases/
-	if debug {
-		zapLogger, err := zap.NewDevelopment()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		sugar := zapLogger.Sugar()
-		sugar.Debug("debug enabled")
-		return sugar
-	} else {
-		// Override the default zap production Config a little
-		// NewProductionConfig is json
-
-		logConfig := zap.NewProductionConfig()
-		// customise the "time" field to be ISO8601
-		logConfig.EncoderConfig.TimeKey = "time"
-		logConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-		// main message data into the key "msg"
-		logConfig.EncoderConfig.MessageKey = "msg"
-
-		// stdout+sterr into stdout
-		logConfig.OutputPaths = []string{"stdout"}
-		logConfig.ErrorOutputPaths = []string{"stdout"}
-		zapLogger, err := logConfig.Build()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		return zapLogger.Sugar()
-	}
-}
 
 var rootCmd = &cobra.Command{
 	Use:   "daemon",
@@ -79,38 +42,46 @@ type GitState struct {
 }
 
 type Daemon struct {
-	logger           *zap.SugaredLogger
-	registryClient   *registry.Client
-	webClient        *web.Client
-	cacheDb          *buntdb.DB
-	fileList         []string // list of files containing docker images urls
-	gitState         []GitState
-	dockerRegistries []cfg.DockerRegistry
-	gitConfig        cfg.Global
-	gitOpsClient     *gitoperations.Client
-	opsClient        *operations.Client
+	logger               *zap.SugaredLogger
+	dockerRegistryClient *registry.Client
+	webClient            *web.Client
+	cacheDb              *buntdb.DB
+	fileList             []string // list of files containing docker images urls
+	gitState             []GitState
+	dockerRegistries     map[string]cfg.DockerRegistry
+	gitConfig            cfg.Global
+	gitOpsClient         *gitoperations.Client
+	opsClient            *operations.Client
 }
 
 func New() (d *Daemon, err error) {
-	logger := startLogger(debug)
+	logger := common.GetLogger(debug)
 	appConfig, err := loadConfig(logger)
 	if err != nil {
 		return nil, err
 	}
 	cacheDb := cache.Open(configCache, logger)
 	d = &Daemon{
-		logger:           logger,
-		registryClient:   registry.New(logger, cacheDb),
-		gitState:         nil,
-		webClient:        web.New(logger, appConfig.Global.GitHubToken),
-		cacheDb:          cacheDb,
-		dockerRegistries: appConfig.DockerRegistries,
-		gitConfig:        appConfig.Global,
-		gitOpsClient:     gitoperations.New(logger, appConfig.Global),
-		opsClient:        operations.New(logger),
+		logger:               logger,
+		dockerRegistryClient: registry.New(logger, cacheDb),
+		gitState:             nil,
+		webClient:            web.New(logger, appConfig.Global.GitHubToken),
+		cacheDb:              cacheDb,
+		dockerRegistries:     mapDockerRegistries(appConfig.DockerRegistries),
+		gitConfig:            appConfig.Global,
+		gitOpsClient:         gitoperations.New(logger, appConfig.Global),
+		opsClient:            operations.New(logger),
 	}
 	d.initialiseGitState(appConfig.GitRepos)
 	return
+}
+
+func mapDockerRegistries(registries []cfg.DockerRegistry) map[string]cfg.DockerRegistry {
+	result := map[string]cfg.DockerRegistry{}
+	for _, reg := range registries {
+		result[reg.Reg] = reg
+	}
+	return result
 }
 
 func loadConfig(logger *zap.SugaredLogger) (appConfig cfg.Config, err error) {
@@ -152,7 +123,7 @@ func (d *Daemon) enterControlLoop() {
 	for {
 		select {
 		case repo := <-d.webClient.BuildChan:
-			d.scanNow(repo)
+			d.singleRepoTask(repo)
 		case <-d.webClient.PauseChan:
 			d.pause()
 		case <-ticker:
@@ -172,7 +143,7 @@ func (d *Daemon) pause() {
 func (d *Daemon) masterTask() {
 	// from the update policies, make a list of ALL file paths which are referenced in our gitoperations repo
 	for _, state := range d.gitState {
-		d.updateRepoStates(state)
+		d.updateGitRepoState(state)
 	}
 
 	// TODO: docker reg Timeout?
@@ -190,8 +161,22 @@ func (d *Daemon) masterTask() {
 	}
 }
 
+func (d *Daemon) singleRepoTask(r web.DockerBuildJSON) {
+	if reg, ok := d.dockerRegistries[r.DockerRegistryUrl]; ok {
+		for _, state := range d.gitState {
+			d.updateGitRepoState(state)
+		}
+
+		d.scanDockerRegistry(reg)
+
+		for _, state := range d.gitState {
+			d.updateFiles(*state.repoCfg)
+		}
+	}
+}
+
 func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
-	registryStrings := getRegistryStrings(d.dockerRegistries)
+	registryStrings := d.getRegistryStrings()
 	triggerCommitAndPush := false
 	var changes []ChangeRequest
 	for _, updatePolicy := range gitRepo.Updates {
@@ -252,27 +237,32 @@ func (d *Daemon) commitAndPush(changes []ChangeRequest, repo cfg.GitRepo) {
 
 func (d *Daemon) scanDockerRegistries() {
 	for _, dockerReg := range d.dockerRegistries {
-		foundDockerImages := d.FindDockerImages(
-			d.fileList,
-			fmt.Sprintf(dockerReg.Reg),
-		)
-		d.registryClient.Exec(dockerReg, foundDockerImages)
-		if len(foundDockerImages) > 0 {
-			d.logger.Infow("found images (in gitoperations) matching a configured docker registry",
-				"laminar.regName", dockerReg.Name,
-				"laminar.reg", dockerReg.Reg,
-				"laminar.imageCount", len(foundDockerImages),
-			)
-		} else {
-			d.logger.Infow("no images tags found.. ensure the full <image>:<tag> strings present",
-				"laminar.regName", dockerReg.Name,
-				"laminar.reg", dockerReg.Reg,
-			)
-		}
+		d.scanDockerRegistry(dockerReg)
 	}
 }
 
-func (d *Daemon) updateRepoStates(state GitState) {
+func (d *Daemon) scanDockerRegistry(dockerReg cfg.DockerRegistry) {
+	d.logger.Infow("scanning docker registry", "url", dockerReg.Reg)
+	foundDockerImages := d.FindDockerImages(
+		d.fileList,
+		fmt.Sprintf(dockerReg.Reg),
+	)
+	if len(foundDockerImages) > 0 {
+		d.dockerRegistryClient.Exec(dockerReg, foundDockerImages)
+		d.logger.Infow("found images (in gitoperations) matching a configured docker registry",
+			"laminar.regName", dockerReg.Name,
+			"laminar.reg", dockerReg.Reg,
+			"laminar.imageCount", len(foundDockerImages),
+		)
+	} else {
+		d.logger.Infow("no images tags found.. ensure the full <image>:<tag> strings present",
+			"laminar.regName", dockerReg.Name,
+			"laminar.reg", dockerReg.Reg,
+		)
+	}
+}
+
+func (d *Daemon) updateGitRepoState(state GitState) {
 	// Clone all repos that haven't been cloned yet
 	if state.Repo != nil {
 		d.gitOpsClient.Pull(*state.repoCfg)
@@ -324,14 +314,10 @@ func (d *Daemon) updateRepoStates(state GitState) {
 	)
 }
 
-func (d *Daemon) scanNow(repo string) {
-	//todo: implement
-}
-
-func getRegistryStrings(registries []cfg.DockerRegistry) []string {
+func (d Daemon) getRegistryStrings() []string {
 	// this is a slice of the registry URLs as we expect to see them inside files
 	var registryStrings []string
-	for _, reg := range registries {
+	for _, reg := range d.dockerRegistries {
 		registryStrings = append(registryStrings, reg.Reg)
 	}
 	return registryStrings

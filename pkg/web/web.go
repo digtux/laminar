@@ -45,6 +45,8 @@ type GitHubWebHookJSON struct {
 }
 
 type DockerBuildJSON struct {
+	Url               string `json:"url"`
+	DockerRegistryUrl string `json:"docker_registry_url"`
 }
 
 func stringContains(comment, value string) bool {
@@ -61,7 +63,7 @@ func stringContains(comment, value string) bool {
 type Client struct {
 	logger      *zap.SugaredLogger
 	PauseChan   chan time.Time
-	BuildChan   chan string
+	BuildChan   chan DockerBuildJSON
 	githubToken string
 }
 
@@ -69,7 +71,7 @@ func New(logger *zap.SugaredLogger, githubToken string) *Client {
 	return &Client{
 		logger:      logger,
 		PauseChan:   make(chan time.Time),
-		BuildChan:   make(chan string),
+		BuildChan:   make(chan DockerBuildJSON),
 		githubToken: githubToken,
 	}
 }
@@ -128,8 +130,8 @@ func (client *Client) handleDockerBuildWebhook(ctx echo.Context) (err error) {
 	u := new(DockerBuildJSON)
 	if err = ctx.Bind(u); err != nil {
 		client.logger.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
-	}
-	if err == nil {
+	} else {
+		client.BuildChan <- *u
 		return ctx.String(http.StatusOK, "build webhook received")
 	}
 	return err

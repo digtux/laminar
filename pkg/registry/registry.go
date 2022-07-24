@@ -46,7 +46,7 @@ func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) {
 	}
 
 	if strings.Contains(registry.Reg, "gcr") {
-		//GcrWorker(db, registry, imageList)
+		GcrWorker(c.db, registry, imageList, c.logger)
 		return
 	}
 
@@ -63,16 +63,14 @@ func grokRegistrySettings(in cfg.DockerRegistry) cfg.DockerRegistry {
 	return in
 }
 
-func CachedImagesToTagInfoListSpecificImage(
-	db *buntdb.DB,
+func (c *Client) CachedImagesToTagInfoListSpecificImage(
 	imageString string,
 	index string,
-	log *zap.SugaredLogger,
 ) (result []TagInfo) {
-	db.View(func(tx *buntdb.Tx) error {
+	c.db.View(func(tx *buntdb.Tx) error {
 		tx.Descend(index, func(key, val string) bool {
 			// decode the data from the db
-			x := JsonStringToTagInfo(val, log)
+			x := JsonStringToTagInfo(val, c.logger)
 
 			// if this image matches the imageString append it to the result
 			if x.Image == imageString {
