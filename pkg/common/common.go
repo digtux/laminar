@@ -31,7 +31,7 @@ func GetFileAbsPath(fileName string, log *zap.SugaredLogger) (result string) {
 	return result
 }
 
-// IsDir will return true/false if the path is a directory
+// IsDir will return true if the path is a directory
 func IsDir(path string, log *zap.SugaredLogger) bool {
 	fileInfo, err := os.Stat(path)
 	if err != nil {
@@ -44,7 +44,7 @@ func IsDir(path string, log *zap.SugaredLogger) bool {
 	return fileInfo.IsDir()
 }
 
-// IsFile will return true if the path is a directory
+// IsFile will return true if the path is a normal file (not directory or link)
 func IsFile(path string, log *zap.SugaredLogger) bool {
 	fileInfo, err := os.Stat(path)
 	if err != nil {

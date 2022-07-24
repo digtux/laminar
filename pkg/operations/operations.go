@@ -3,6 +3,7 @@ package operations
 import (
 	"bufio"
 	"bytes"
+	"github.com/labstack/gommon/log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,8 +12,18 @@ import (
 	"go.uber.org/zap"
 )
 
+type Client struct {
+	logger *zap.SugaredLogger
+}
+
+func New(logger *zap.SugaredLogger) *Client {
+	return &Client{
+		logger: logger,
+	}
+}
+
 // FindFiles returns a slice containing paths to all files found in a directory
-func FindFiles(searchPath string, log *zap.SugaredLogger) []string {
+func (c *Client) FindFiles(searchPath string) []string {
 
 	var result []string
 
@@ -28,8 +39,8 @@ func FindFiles(searchPath string, log *zap.SugaredLogger) []string {
 			return errX
 		}
 
-		if common.IsFile(pathX, log) {
-			log.Debugw("FindFiles found file",
+		if common.IsFile(pathX, c.logger) {
+			c.logger.Debugw("FindFiles found file",
 				"fileName", infoX.Name(),
 			)
 
@@ -41,7 +52,7 @@ func FindFiles(searchPath string, log *zap.SugaredLogger) []string {
 			case ".yaml":
 				result = append(result, pathX)
 			default:
-				log.Warnw("file not yaml, ignoring",
+				c.logger.Warnw("file not yaml, ignoring",
 					"laminar.path", pathX)
 			}
 		}
@@ -49,11 +60,11 @@ func FindFiles(searchPath string, log *zap.SugaredLogger) []string {
 		return nil
 	}
 
-	realPath := common.GetFileAbsPath(searchPath, log)
+	realPath := common.GetFileAbsPath(searchPath, c.logger)
 	err := filepath.Walk(realPath, searchFunc)
 
 	if err != nil {
-		log.Debugw("file error",
+		c.logger.Debugw("file error",
 			"path", searchPath,
 			"error", err,
 		)
@@ -65,9 +76,9 @@ func FindFiles(searchPath string, log *zap.SugaredLogger) []string {
 // Search returns a slice of hits that match a string inside a operations
 // The assumption is that this is only used against YAML files
 // it should work on other types but YMMV
-func Search(file string, searchString string, log *zap.SugaredLogger) (matches []string) {
+func (c *Client) Search(file string, searchString string) (matches []string) {
 	pat := []byte(searchString)
-	fp := common.GetFileAbsPath(file, log)
+	fp := common.GetFileAbsPath(file, c.logger)
 	f, err := os.Open(fp)
 	if err != nil {
 		log.Fatal(err)

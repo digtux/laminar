@@ -75,7 +75,6 @@ Laminar is a GitOps utility for automating the promotion of docker images in git
 
 type GitState struct {
 	Repo    *git.Repository
-	Cloned  bool
 	repoCfg *cfg.GitRepo
 }
 
@@ -88,26 +87,30 @@ type Daemon struct {
 	gitState         []GitState
 	dockerRegistries []cfg.DockerRegistry
 	gitConfig        cfg.Global
-	gitClient        *gitoperations.Client
+	gitOpsClient     *gitoperations.Client
+	opsClient        *operations.Client
 }
 
-func New() (*Daemon, error) {
+func New() (d *Daemon, err error) {
 	logger := startLogger(debug)
 	appConfig, err := loadConfig(logger)
 	if err != nil {
 		return nil, err
 	}
 	cacheDb := cache.Open(configCache, logger)
-	return &Daemon{
+	d = &Daemon{
 		logger:           logger,
 		registryClient:   registry.New(logger, cacheDb),
-		gitState:         getInitialState(appConfig, logger),
+		gitState:         nil,
 		webClient:        web.New(logger, appConfig.Global.GitHubToken),
 		cacheDb:          cacheDb,
 		dockerRegistries: appConfig.DockerRegistries,
 		gitConfig:        appConfig.Global,
-		gitClient:        gitoperations.New(logger, appConfig.Global),
-	}, nil
+		gitOpsClient:     gitoperations.New(logger, appConfig.Global),
+		opsClient:        operations.New(logger),
+	}
+	d.initialiseGitState(appConfig.GitRepos)
+	return
 }
 
 func loadConfig(logger *zap.SugaredLogger) (appConfig cfg.Config, err error) {
@@ -128,17 +131,14 @@ func loadConfig(logger *zap.SugaredLogger) (appConfig cfg.Config, err error) {
 	return
 }
 
-func getInitialState(cfg cfg.Config, logger *zap.SugaredLogger) []GitState {
-	gitStateList := make([]GitState, len(cfg.GitRepos))
-	for i, repoCfg := range cfg.GitRepos {
-		repoObj := gitoperations.InitialGitCloneAndCheckout(repoCfg, logger)
-		gitStateList[i] = GitState{
-			Repo:    repoObj,
-			Cloned:  true,
+func (d *Daemon) initialiseGitState(repos []cfg.GitRepo) {
+	d.gitState = make([]GitState, len(repos))
+	for i, repoCfg := range repos {
+		d.gitState[i] = GitState{
+			Repo:    d.gitOpsClient.InitialGitCloneAndCheckout(repoCfg),
 			repoCfg: &repoCfg,
 		}
 	}
-	return gitStateList
 }
 
 func (d *Daemon) Start() {
@@ -204,21 +204,21 @@ func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 			realPath := fmt.Sprintf("%s/%s", relativeGitPath, p.Path)
 
 			// finally this will return all files found
-			for _, paths := range operations.FindFiles(realPath, d.logger) {
+			for _, paths := range d.opsClient.FindFiles(realPath) {
 				fileList = append(fileList, paths)
 			}
 		}
 
-		for _, file := range fileList {
+		for _, filePath := range fileList {
 			d.logger.Debugw("applying update policy",
-				"laminar.file", file,
+				"laminar.file", filePath,
 				"laminar.pattern", updatePolicy.PatternString,
 				"laminar.blacklist", updatePolicy.BlackList,
 			)
-			newChanges := doUpdate(file, updatePolicy, registryStrings, d.cacheDb, d.logger)
+			newChanges := d.doUpdate(filePath, updatePolicy, registryStrings)
 			if len(newChanges) > 0 {
 				d.logger.Infow("updates desired",
-					"laminar.file", file,
+					"laminar.file", filePath,
 					"laminar.pattern", updatePolicy.PatternString,
 				)
 				triggerCommitAndPush = true
@@ -247,15 +247,14 @@ func (d *Daemon) commitAndPush(changes []ChangeRequest, repo cfg.GitRepo) {
 		"laminar.gitRepo", repo.URL,
 		"laminar.msg", msg,
 	)
-	d.gitClient.CommitAndPush(repo, msg)
+	d.gitOpsClient.CommitAndPush(repo, msg)
 }
 
 func (d *Daemon) scanDockerRegistries() {
 	for _, dockerReg := range d.dockerRegistries {
-		foundDockerImages := FindDockerImages(
+		foundDockerImages := d.FindDockerImages(
 			d.fileList,
 			fmt.Sprintf(dockerReg.Reg),
-			d.logger,
 		)
 		d.registryClient.Exec(dockerReg, foundDockerImages)
 		if len(foundDockerImages) > 0 {
@@ -275,8 +274,13 @@ func (d *Daemon) scanDockerRegistries() {
 
 func (d *Daemon) updateRepoStates(state GitState) {
 	// Clone all repos that haven't been cloned yet
-	if state.Cloned {
-		gitoperations.Pull(*state.repoCfg, d.logger)
+	if state.Repo != nil {
+		d.gitOpsClient.Pull(*state.repoCfg)
+	} else {
+		d.logger.Warnw("repo has not been initialised",
+			"repo.URL", state.repoCfg.URL)
+		//TODO: implement initialisation of uninitialised repos (probs issue for dynamic configs)
+		return
 	}
 
 	// This sections deals with loading remote config from the gitoperations repo
@@ -324,10 +328,10 @@ func (d *Daemon) scanNow(repo string) {
 	//todo: implement
 }
 
-func getRegistryStrings(dockerRegistries []cfg.DockerRegistry) []string {
+func getRegistryStrings(registries []cfg.DockerRegistry) []string {
 	// this is a slice of the registry URLs as we expect to see them inside files
 	var registryStrings []string
-	for _, reg := range dockerRegistries {
+	for _, reg := range registries {
 		registryStrings = append(registryStrings, reg.Reg)
 	}
 	return registryStrings

@@ -5,7 +5,6 @@ import (
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/gitoperations"
-	"github.com/digtux/laminar/pkg/operations"
 )
 
 // UpdateFileList returns a list of files found in the gitoperations repo
@@ -44,7 +43,7 @@ func (d *Daemon) UpdateFileList(gitRepo cfg.GitRepo) {
 		realPath := fmt.Sprintf("%s/%s", relativeGitPath, path)
 
 		// finally this will return all files found
-		for _, fileList := range operations.FindFiles(realPath, d.logger) {
+		for _, fileList := range d.opsClient.FindFiles(realPath) {
 			d.fileList = append(d.fileList, fileList)
 		}
 	}
