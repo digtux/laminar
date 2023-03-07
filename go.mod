@@ -9,7 +9,9 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a
 	github.com/kevinburke/ssh_config v1.1.0 // indirect
-	github.com/labstack/echo/v4 v4.6.3
+	github.com/labstack/echo/v4 v4.9.0
+	github.com/labstack/gommon v0.3.1
+	github.com/pkg/errors v0.9.1
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/tidwall/buntdb v1.1.2
