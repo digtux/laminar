@@ -1,7 +1,6 @@
 package gitoperations
 
 import (
-	"go.uber.org/zap"
 	"io/ioutil"
 
 	"github.com/digtux/laminar/pkg/common"
@@ -9,12 +8,12 @@ import (
 	crypto_ssh "golang.org/x/crypto/ssh"
 )
 
-func getSshKeySigner(fileName string, log *zap.SugaredLogger) crypto_ssh.Signer {
+func (c *Client) getSshKeySigner(fileName string) crypto_ssh.Signer {
 
-	fullPath := common.GetFileAbsPath(fileName, log)
+	fullPath := common.GetFileAbsPath(fileName, c.logger)
 	sshKey, err := ioutil.ReadFile(fullPath)
 	if err != nil {
-		log.Fatalw("unable to read private ssh key",
+		c.logger.Fatalw("unable to read private ssh key",
 			"file", fileName,
 			"error", err,
 		)
@@ -22,7 +21,7 @@ func getSshKeySigner(fileName string, log *zap.SugaredLogger) crypto_ssh.Signer 
 
 	signer, err := crypto_ssh.ParsePrivateKey([]byte(sshKey))
 	if err != nil {
-		log.Fatalw("Failed to parse ssh key",
+		c.logger.Fatalw("Failed to parse ssh key",
 			"action", "sshKeyParse",
 			"sshKey", fileName,
 			"error", err.Error(),
@@ -31,8 +30,8 @@ func getSshKeySigner(fileName string, log *zap.SugaredLogger) crypto_ssh.Signer 
 	return signer
 }
 
-func getAuth(key string, log *zap.SugaredLogger) *ssh.PublicKeys {
-	signer := getSshKeySigner(key, log)
+func (c *Client) getAuth(key string) *ssh.PublicKeys {
+	signer := c.getSshKeySigner(key)
 	auth := &ssh.PublicKeys{
 		User:   "git",
 		Signer: signer,

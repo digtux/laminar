@@ -10,18 +10,15 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 
-	//"github.com/go-git/go-git/v5/plumbing"
-	"go.uber.org/zap"
-
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
 )
 
-func Pull(stuff *git.Repository, registry cfg.GitRepo, log *zap.SugaredLogger) {
+func (c *Client) Pull(registry cfg.GitRepo) {
 	path := GetRepoPath(registry)
 	r, err := git.PlainOpen(path)
 	if err != nil {
-		log.Errorw("error opening repo",
+		c.logger.Errorw("error opening repo",
 			"laminar.registry", registry,
 			"laminar.error", err,
 		)
@@ -30,53 +27,54 @@ func Pull(stuff *git.Repository, registry cfg.GitRepo, log *zap.SugaredLogger) {
 	w, err := r.Worktree()
 	//w, err := stuff.Worktree()
 	if err != nil {
-		log.Fatal("Couldn't open git in %v [%v]", path, err)
+		c.logger.Fatal("Couldn't open git in %v [%v]", path, err)
 	}
 
 	//auth := getAuth(registry.Key, log)
-	log.Debugw("pulling",
+	c.logger.Debugw("pulling",
 		"registry", registry.URL,
 		"branch", registry.Branch,
 	)
 	err = w.Pull(&git.PullOptions{
 		RemoteName: "origin",
-		//Auth:       auth,
+		Depth:      1,
 	})
+	// TODO: replace with err.Error() and check if functions the same
 	if fmt.Sprintf("%v", err) == "already up-to-date" {
-		log.Debugf("pull success, already up-to-date")
+		c.logger.Debugf("pull success, already up-to-date")
 		err = nil
 	}
 	if err != nil {
-		log.Errorf("Couldn't pull.. [%v]", err)
+		c.logger.Errorf("Couldn't pull.. [%v]", err)
 		os.Exit(1)
 	}
-	log.Debugf(GetCommitId(path, log))
+	c.logger.Debugf(c.GetCommitId(path))
 }
 
 func GetRepoPath(registry cfg.GitRepo) string {
 	replacedSlash := strings.Replace(registry.Branch, "/", "-", -1)
 	replacedColon := strings.Replace(replacedSlash, ":", "-", -1)
-	return string("/tmp/" + registry.URL + "-" + replacedColon)
+	return "/tmp/" + registry.URL + "-" + replacedColon
 }
 
 // All-In-One method that will do a clone and checkout
-func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *git.Repository {
+func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repository {
 	diskPath := GetRepoPath(registry)
-	log.Debugw("Doing initialGitClone",
+	c.logger.Debugw("Doing initialGitClone",
 		"url", registry.URL,
 		"branch", registry.Branch,
 		"key", registry.Key,
 	)
 
-	auth := getAuth(registry.Key, log)
+	auth := c.getAuth(registry.Key)
 
-	if common.IsDir(diskPath, log) {
-		log.Debugw("previous checkout detected.. purging it",
+	if common.IsDir(diskPath, c.logger) {
+		c.logger.Debugw("previous checkout detected.. purging it",
 			"path", diskPath,
 		)
 		err := os.RemoveAll(diskPath)
 		if err != nil {
-			log.Fatalw("couldn't remove dir",
+			c.logger.Fatalw("couldn't remove dir",
 				"diskPath", diskPath,
 				"error", err,
 			)
@@ -85,15 +83,15 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
 
 	r, err := git.PlainClone(diskPath, false, &git.CloneOptions{
-		URL:          registry.URL,
-		Progress:     nil,
-		Auth:         auth,
-		SingleBranch: true,
-		NoCheckout:   false,
+		URL:           registry.URL,
+		Progress:      nil,
+		Auth:          auth,
+		SingleBranch:  true,
+		NoCheckout:    false,
 		ReferenceName: mergeRef,
 	})
 	if err != nil {
-		log.Fatalw("unable to clone the git repo",
+		c.logger.Fatalw("unable to clone the git repo",
 			"gitRepo", registry.URL,
 			"error", err,
 		)
@@ -105,14 +103,14 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 	}
 
 	if err := r.Fetch(opts); err != nil {
-		log.Fatalw("Error fetching remotes",
+		c.logger.Fatalw("Error fetching remotes",
 			"error", err,
 		)
 	}
 
 	w, err := r.Worktree()
 	if err != nil {
-		log.Fatalw("unable to get Worktree of the repo",
+		c.logger.Fatalw("unable to get Worktree of the repo",
 			"error", err,
 		)
 	}
@@ -124,7 +122,7 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 	})
 
 	if err != nil {
-		log.Fatalw("Error checking out branch",
+		c.logger.Fatalw("Error checking out branch",
 			"error", err,
 		)
 	}
@@ -132,19 +130,19 @@ func InitialGitCloneAndCheckout(registry cfg.GitRepo, log *zap.SugaredLogger) *g
 	return r
 }
 
-func GetCommitId(path string, log *zap.SugaredLogger) string {
+func (c *Client) GetCommitId(path string) string {
 	r, err := git.PlainOpen(path)
 	if err != nil {
-		log.Fatal(err)
+		c.logger.Fatal(err)
 	}
 
 	ref, err := r.Head()
 	if err != nil {
-		log.Fatal(err)
+		c.logger.Fatal(err)
 	}
 	commit, err := r.CommitObject(ref.Hash())
 	if err != nil {
-		log.Fatal(err)
+		c.logger.Fatal(err)
 	}
 	return fmt.Sprint(commit.Hash)
 }

@@ -55,6 +55,33 @@ Laminar will then do the following:
 - sleep until the end of `pollFreq`
 - repeat
 
+### Main loop sequence
+```mermaid
+sequenceDiagram
+participant laminar as Laminar
+participant git as Git
+participant dr as Docker Registry
+
+loop every interval
+    loop for each git repo
+        laminar->>git: clone "k8s-manifest"
+        laminar->>laminar: checkout "branch"
+        laminar->>laminar: search files for string matching "pattern"
+    end
+    
+    loop for each docker registry
+        laminar->>dr: get available images tags
+    end
+    
+    loop for each git repo
+        alt new tag found
+            laminar->>laminar: replace tag
+            laminar->>laminar: git commit
+            laminar->>git: push
+        end
+    end
+end
+```
 
 # Reasoning
 We love weave flux.. but it makes working with templated manifests challenging. If you're running 10x kubernetes clusters it also makes very little sense to have each one polling your docker registries.

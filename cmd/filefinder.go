@@ -5,19 +5,18 @@ import (
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/gitoperations"
-	"github.com/digtux/laminar/pkg/operations"
-	"go.uber.org/zap"
 )
 
-// FileFinder returns a list of files found in the gitoperations repo
+// UpdateFileList returns a list of files found in the gitoperations repo
 // NOTE: updatePolicies with references to the specific gitRepo are required
 // NOTE2: if it looks like a folder all files found underneath will be included
 // TODO: how does this play with .gitoperations files? we probably want to filter+exclude them here
 // TODO: might want to exclude tarballs and other kind of things also I guess..
-func FileFinder(gitRepo cfg.GitRepo, log *zap.SugaredLogger) []string {
+func (d *Daemon) UpdateFileList(gitRepo cfg.GitRepo) {
+	d.logger.Info("updating Daemon's file list")
 
 	// empty the list of files found
-	fileList = nil
+	d.fileList = make([]string, 0)
 
 	var thisReposPaths []string
 
@@ -25,7 +24,7 @@ func FileFinder(gitRepo cfg.GitRepo, log *zap.SugaredLogger) []string {
 	// only IF the gitRepo specifies the name of our gitRepo
 	for _, update := range gitRepo.Updates {
 		for _, p := range update.Files {
-			log.Debugw("FileFinder searching for files",
+			d.logger.Debugw("FileFinder searching for files",
 				"path", p.Path,
 				"gitRepo", gitRepo.URL,
 				"branch", gitRepo.Branch,
@@ -37,20 +36,18 @@ func FileFinder(gitRepo cfg.GitRepo, log *zap.SugaredLogger) []string {
 	thisReposPaths = common.UniqueStrings(thisReposPaths)
 
 	// get ready to add the discovered files to the slice
-	for _, p := range thisReposPaths {
+	for _, path := range thisReposPaths {
 		// get the path of where the gitoperations repo is checked out
 		relativeGitPath := gitoperations.GetRepoPath(gitRepo)
 		// combine these
-		realPath := fmt.Sprintf("%s/%s", relativeGitPath, p)
+		realPath := fmt.Sprintf("%s/%s", relativeGitPath, path)
 
 		// finally this will return all files found
-		for _, x := range operations.FindFiles(realPath, log) {
-			fileList = append(fileList, x)
+		for _, fileList := range d.opsClient.FindFiles(realPath) {
+			d.fileList = append(d.fileList, fileList)
 		}
-
 	}
-	log.Debugw("successfully found files in gitoperations",
-		"count", len(fileList),
+	d.logger.Debugw("successfully found files in gitoperations",
+		"count", len(d.fileList),
 	)
-	return fileList
 }

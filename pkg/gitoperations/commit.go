@@ -2,6 +2,7 @@ package gitoperations
 
 import (
 	"bytes"
+	"github.com/labstack/gommon/log"
 	"os"
 	"os/exec"
 	"time"
@@ -12,11 +13,23 @@ import (
 	"go.uber.org/zap"
 )
 
-func executeCmd(command string, path string, log *zap.SugaredLogger) {
+type Client struct {
+	logger *zap.SugaredLogger
+	config cfg.Global
+}
+
+func New(logger *zap.SugaredLogger, config cfg.Global) *Client {
+	return &Client{
+		logger: logger,
+		config: config,
+	}
+}
+
+func (c *Client) executeCmd(command string, path string) {
 
 	var stdout bytes.Buffer
 
-	log.Infow("executeCmd",
+	c.logger.Infow("executeCmd",
 		"larminar.command", command,
 	)
 
@@ -35,17 +48,17 @@ func executeCmd(command string, path string, log *zap.SugaredLogger) {
 	if err != nil {
 		log.Error(err)
 	}
-	log.Infow("exec",
+	c.logger.Infow("exec",
 		"laminar.command", "sh -c "+command,
 		"laminar.output", stdout.String(),
 	)
 }
 
-func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log *zap.SugaredLogger) {
+func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 	path := GetRepoPath(registry)
 	r, err := git.PlainOpen(path)
 	if err != nil {
-		log.Errorw("error opening repo",
+		c.logger.Errorw("error opening repo",
 			"laminar.registry", registry,
 			"laminar.error", err,
 		)
@@ -58,12 +71,12 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 
 	if len(registry.PreCommitCommands) > 0 {
 		for _, cmd := range registry.PreCommitCommands {
-			executeCmd(cmd, path, log)
+			c.executeCmd(cmd, path)
 		}
 	}
 
 	// auth := getAuth(registry.Key)
-	log.Infow("time to commit git",
+	c.logger.Infow("time to commit git",
 		"larminar.registry", registry.URL,
 		"larminar.branch", registry.Branch,
 	)
@@ -79,13 +92,13 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 	commit, err := w.Commit(message, &git.CommitOptions{
 		All: true,
 		Author: &object.Signature{
-			Name:  global.GitUser,
-			Email: global.GitEmail,
+			Name:  c.config.GitUser,
+			Email: c.config.GitEmail,
 			When:  time.Now(),
 		},
 	})
 	if err != nil {
-		log.Errorw("Error doing git commit",
+		c.logger.Errorw("Error doing git commit",
 			"laminar.error", err,
 		)
 	}
@@ -95,7 +108,7 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 	}
 
 	// push using default options
-	log.Infow("doing git push",
+	c.logger.Infow("doing git push",
 		"laminar.commit", commit,
 		"laminar.obj", obj,
 	)
@@ -103,7 +116,7 @@ func CommitAndPush(registry cfg.GitRepo, global cfg.Global, message string, log 
 	if err != nil {
 		// TODO: handle this error by re-cloning the repo or similar
 		// TODO: don't handle this untill there are prometheus metrics to alert us of issues
-		log.Fatalw("Something terrible happened!!!!",
+		c.logger.Fatalw("Something terrible happened!!!!",
 			"error", err,
 		)
 		os.Exit(1)

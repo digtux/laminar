@@ -3,10 +3,9 @@ package web
 import (
 	"bytes"
 	"fmt"
+	"go.uber.org/zap"
 	"net/http"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/labstack/echo/v4"
 )
@@ -22,9 +21,9 @@ type Event struct {
 type GitHubWebHookJSON struct {
 	Action  string `json:"action"`
 	Comment struct {
-		Body      string `json:"body"`
+		Body string `json:"body"`
 		//UpdatedAt string `json:"updated_at"`
-		User      struct {
+		User struct {
 			Login string `json:"login"`
 		} `json:"user"`
 	} `json:"comment"`
@@ -45,45 +44,9 @@ type GitHubWebHookJSON struct {
 	} `json:"sender"`
 }
 
-func StartWeb(log *zap.SugaredLogger, lastPause *time.Time, githubToken string){
-	ghWebHookPath := fmt.Sprintf("/webhooks/github/%s", githubToken)
-	e := echo.New()
-	e.HideBanner = true
-
-	e.GET("/healthz", func(c echo.Context) (err error){
-		return c.String(http.StatusOK, "ok")
-	})
-
-	e.POST(ghWebHookPath, func(c echo.Context) (err error) {
-		isComment := isIssueComment(c.Request().Header)
-		if isComment {
-			u := new(GitHubWebHookJSON)
-			if err := c.Bind(u); err != nil {
-				log.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
-			}
-			log.Debugw("webhook",
-				"status", "body_checked",
-				"reason", "is a comment event",
-				"data", u,
-			)
-			if stringContains(u.Comment.Body, "laminar pause") {
-				// someone told laminar to be a good boy... update "lastPause"
-				log.Infow("webhook",
-					"status", "laminar instructed to pause",
-				)
-				*lastPause = time.Now()
-				return c.String(http.StatusOK, "laminar paused")
-			}
-		} else {
-			log.Infow("webhook",
-				"status", "ignored",
-				"reason", "not comment",
-			)
-		}
-		return c.String(http.StatusOK, "ok")
-	})
-
-	e.Logger.Fatal(e.Start(":8080"))
+type DockerBuildJSON struct {
+	Url               string `json:"url"`
+	DockerRegistryUrl string `json:"docker_registry_url"`
 }
 
 func stringContains(comment, value string) bool {
@@ -95,6 +58,83 @@ func stringContains(comment, value string) bool {
 		return true
 	}
 	return false
+}
+
+type Client struct {
+	logger      *zap.SugaredLogger
+	PauseChan   chan time.Time
+	BuildChan   chan DockerBuildJSON
+	githubToken string
+}
+
+func New(logger *zap.SugaredLogger, githubToken string) *Client {
+	return &Client{
+		logger:      logger,
+		PauseChan:   make(chan time.Time),
+		BuildChan:   make(chan DockerBuildJSON),
+		githubToken: githubToken,
+	}
+}
+
+func (client *Client) StartWeb() {
+	e := echo.New()
+	e.HideBanner = true
+
+	e.GET("/healthz", func(c echo.Context) (err error) {
+		return c.String(http.StatusOK, "ok")
+	})
+	e.POST(
+		fmt.Sprintf("/webhooks/github/%s", client.githubToken),
+		client.handleGithubWebhook,
+	)
+	e.POST(
+		"/webhooks/build/docker",
+		client.handleDockerBuildWebhook,
+	)
+	e.Logger.Fatal(e.Start(":8080"))
+}
+
+func (client *Client) handleGithubWebhook(ctx echo.Context) (err error) {
+	isComment := isIssueComment(ctx.Request().Header)
+	if isComment {
+		u := new(GitHubWebHookJSON)
+		if err := ctx.Bind(u); err != nil {
+			client.logger.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
+		}
+		client.logger.Debugw("webhook",
+			"status", "body_checked",
+			"reason", "is a comment event",
+			"data", u,
+		)
+		if stringContains(u.Comment.Body, "[laminar pause]") {
+			// someone told laminar to be a good boy... update "lastPause"
+			client.logger.Infow("webhook",
+				"status", "laminar instructed to pause",
+			)
+			client.PauseChan <- time.Now()
+			return ctx.String(http.StatusOK, "laminar paused")
+		}
+	} else {
+		client.logger.Infow("webhook",
+			"status", "ignored",
+			"reason", "not comment",
+		)
+	}
+	return ctx.String(http.StatusOK, "ok")
+}
+
+func (client *Client) handleDockerBuildWebhook(ctx echo.Context) (err error) {
+	client.logger.Infow("webhook",
+		"status", "laminar told there is a new build",
+	)
+	u := new(DockerBuildJSON)
+	if err = ctx.Bind(u); err != nil {
+		client.logger.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
+	} else {
+		client.BuildChan <- *u
+		return ctx.String(http.StatusOK, "build webhook received")
+	}
+	return err
 }
 
 func isIssueComment(input http.Header) bool {

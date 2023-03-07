@@ -18,27 +18,39 @@ type TagInfo struct {
 	Tag     string    `json:"tag"`
 }
 
+type Client struct {
+	db     *buntdb.DB
+	logger *zap.SugaredLogger
+}
+
+func New(logger *zap.SugaredLogger, db *buntdb.DB) *Client {
+	return &Client{
+		logger: logger,
+		db:     db,
+	}
+}
+
 // Exec will check if we support that docker reg and then launch an appropriate worker
-func Exec(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
+func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) {
 
 	// grok will add some defaults lest the config doesn't include em
 	registry = grokRegistrySettings(registry)
-	log.Debugw("DockerRegistry worker launching",
+	c.logger.Debugw("DockerRegistry worker launching",
 		"Registry", registry,
 	)
 
 	// Check if the image looks like an ECR image
 	if strings.Contains(registry.Reg, "ecr") {
-		EcrWorker(db, registry, imageList, log)
+		EcrWorker(c.db, registry, imageList, c.logger)
 		return
 	}
 
 	if strings.Contains(registry.Reg, "gcr") {
-		//GcrWorker(db, registry, imageList)
+		GcrWorker(c.db, registry, imageList, c.logger)
 		return
 	}
 
-	log.Fatal("unable to figure out which kind of registry you have")
+	c.logger.Fatal("unable to figure out which kind of registry you have")
 }
 
 // incase some fields are missing, lets set their defaults
@@ -51,16 +63,14 @@ func grokRegistrySettings(in cfg.DockerRegistry) cfg.DockerRegistry {
 	return in
 }
 
-func CachedImagesToTagInfoListSpecificImage(
-	db *buntdb.DB,
+func (c *Client) CachedImagesToTagInfoListSpecificImage(
 	imageString string,
 	index string,
-	log *zap.SugaredLogger,
 ) (result []TagInfo) {
-	db.View(func(tx *buntdb.Tx) error {
+	c.db.View(func(tx *buntdb.Tx) error {
 		tx.Descend(index, func(key, val string) bool {
 			// decode the data from the db
-			x := JsonStringToTagInfo(val, log)
+			x := JsonStringToTagInfo(val, c.logger)
 
 			// if this image matches the imageString append it to the result
 			if x.Image == imageString {

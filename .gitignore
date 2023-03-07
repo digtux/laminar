@@ -4,3 +4,4 @@ laminar-*
 config.yaml
 config-*.yaml
 id_rsa*
+.idea

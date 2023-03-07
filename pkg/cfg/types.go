@@ -2,12 +2,11 @@ package cfg
 
 // Global settings such as git commit user/email
 type Global struct {
-	GitUser    string       `yaml:"gitUser"`
-	GitEmail   string       `yaml:"gitEmail"`
-	GitMessage interface{}  `yaml:"gitMessage"`
+	GitUser     string      `yaml:"gitUser"`
+	GitEmail    string      `yaml:"gitEmail"`
+	GitMessage  interface{} `yaml:"gitMessage"`
 	GitHubToken string      `yaml:"gitHubToken"`
 }
-
 
 // Config is the top level of config
 type Config struct {

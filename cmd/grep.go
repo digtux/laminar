@@ -13,7 +13,6 @@ import (
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/registry"
 	"github.com/gobwas/glob"
-	"github.com/tidwall/buntdb"
 	"go.uber.org/zap"
 )
 
@@ -28,18 +27,12 @@ type ChangeRequest struct {
 	File         string    `json:"file"`
 }
 
-func DoUpdate(
-	filePath string,
-	updates cfg.Updates,
-	registryStrings []string,
-	db *buntdb.DB,
-	log *zap.SugaredLogger,
-) (changesDone []ChangeRequest) {
+func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings []string) (changesDone []ChangeRequest) {
 
 	// split the "PatternString" (eg:  `glob:develop-*`) and determine the style
 	// TODO: do this check when loading config file
 	if len(strings.Split(updates.PatternString, ":")) != 2 {
-		log.Fatalw("pattern string misconfigured.. ",
+		d.logger.Fatalw("pattern string misconfigured.. ",
 			"got", updates.PatternString,
 			"expected", "'glob:foo-*'   or  'semver:~1.1'   (EG)",
 		)
@@ -48,7 +41,7 @@ func DoUpdate(
 	// slice of potential image strings to operate on
 	potentialUpdatesAll := []string{}
 	for _, regString := range registryStrings {
-		potentialUpdatesAll = grepFile(filePath, regString, log)
+		potentialUpdatesAll = grepFile(filePath, regString, d.logger)
 	}
 
 	// run unique on that string, we'll replace all occurences
@@ -60,185 +53,181 @@ func DoUpdate(
 
 	switch patternType {
 	case "glob":
-
-		var changeList = []ChangeRequest{}
-		// TODO.. whole glob case section to its own function/package
-		//log.Infof("searching file %s as type glob", filePath)
-		for _, candidateString := range potentialUpdatesAll {
-
-			// TODO brute force splitting by ":", this will be a problem with registries with additional :123 ports
-			// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
-			candidateStringSplit := strings.Split(candidateString, ":")
-			if len(candidateStringSplit) < 2 {
-				log.Warnw("Refusing to update image",
-					"laminar.image", candidateString,
-					"laminar.file", filePath,
-					"laminar.info", "expected the format: '<registry>:<tag>",
-					"laminar.len", len(strings.Split(candidateString, ":")),
-				)
-			}
-			candidateImage := candidateStringSplit[0]
-
-			// this trick will grab the last slice
-			candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
-
-			if MatchGlob(candidateTag, patternValue) {
-
-				// log.Debugw("Matched Globs",
-				// 	"candidateImage", candidateImage,
-				// 	"candidateTag", candidateTag,
-				// 	"pattern", patternValue,
-				// 	"type", patternType,
-				// )
-
-				// get a full list of tags for the image from our cache
-				index := "created"
-				tagListFromDb := registry.CachedImagesToTagInfoListSpecificImage(
-					db,
-					candidateImage,
-					index,
-					log,
-				)
-
-				// shouldChange is a bool to assist with logic later
-				// changeRequest will go into a []changeList so we can record it to db one day
-				shouldChange, changeRequest := EvaluateIfImageShouldChangeGlob(
-					candidateTag,
-					tagListFromDb,
-					patternValue,
-					candidateImage,
-					filePath,
-					log,
-				)
-				if shouldChange {
-					log.Infow("newer tag detected",
-						"laminar.image", changeRequest.File,
-						"laminar.old", changeRequest.Old,
-						"laminar.new", changeRequest.New,
-					)
-
-					changeHappened := DoChange(changeRequest, log)
-					if changeHappened {
-						log.Debugw("changeList updated with changeRequest",
-							"laminar.changeRequest", changeRequest)
-						changeList = append(changeList, changeRequest)
-					}
-				}
-
-			} else {
-				log.Debugw("Failed to Match Globs",
-					"laminar.candidateImage", candidateImage,
-					"laminar.candidateTag", candidateTag,
-					"laminar.pattern", patternValue,
-					"laminar.type", patternType,
-				)
-			}
-		}
-
-		// All changes that occured will be in this slice
-		// TODO later: record to DB/cache
-		if len(changeList) == 0 {
-			log.Debugw("no changes done",
-				"laminar.changeList", changeList,
-				"laminar.filePath", filePath,
-			)
-		} else {
-			log.Infow("changes to git have happened",
-				"laminar.changeList", changeList,
-				"laminar.filePath", filePath,
-			)
-		}
-		return changeList
-
+		return d.caseGlob(filePath, potentialUpdatesAll, patternValue)
 	case "regex":
-		var changeList = []ChangeRequest{}
-		//log.Infof("searching file %s as type glob", filePath)
-		for _, candidateString := range potentialUpdatesAll {
-
-			// TODO brute force splitting by ":", this will be a problem with registries with additional :123 ports
-			// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
-			candidateStringSplit := strings.Split(candidateString, ":")
-			if len(candidateStringSplit) < 2 {
-				log.Warnw("Refusing to update image",
-					"laminar.image", candidateString,
-					"laminar.file", filePath,
-					"laminar.info", "expected the format: '<registry>:<tag>",
-					"laminar.len", len(strings.Split(candidateString, ":")),
-				)
-			}
-			candidateImage := candidateStringSplit[0]
-
-			// this trick will grab the last slice
-			candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
-
-			if MatchRegex(
-				candidateTag,
-				patternValue,
-				log) {
-
-				index := "created"
-				tagListFromDb := registry.CachedImagesToTagInfoListSpecificImage(
-					db,
-					candidateImage,
-					index,
-					log,
-				)
-
-				// shouldChange is a bool to assist with logic later
-				// changeRequest will go into a []changeList so we can record it to db one day
-				shouldChange, changeRequest := EvaluateIfImageShouldChangeRegex(
-					candidateTag,
-					tagListFromDb,
-					patternValue,
-					candidateImage,
-					filePath,
-					log,
-				)
-				if shouldChange {
-					log.Infow("newer tag detected",
-						"laminar.image", changeRequest.File,
-						"laminar.old", changeRequest.Old,
-						"laminar.new", changeRequest.New,
-					)
-
-					changeHappened := DoChange(changeRequest, log)
-					if changeHappened {
-						log.Debugw("changeList updated with changeRequest",
-							"laminar.changeRequest", changeRequest)
-						changeList = append(changeList, changeRequest)
-					}
-				}
-
-			} else {
-				log.Debugw("Failed to Match Regex",
-					"laminar.candidateImage", candidateImage,
-					"laminar.candidateTag", candidateTag,
-					"laminar.pattern", patternValue,
-					"laminar.type", patternType,
-				)
-			}
-		}
-
-		// All changes that occured will be in this slice
-		// TODO later: record to DB/cache
-		if len(changeList) == 0 {
-			log.Debugw("no changes done",
-				"laminar.changeList", changeList,
-				"laminar.filePath", filePath,
-			)
-		} else {
-			log.Infow("changes to git have happened",
-				"laminar.changeList", changeList,
-				"laminar.filePath", filePath,
-			)
-		}
-		return changeList
-
+		return d.caseRegex(filePath, potentialUpdatesAll, patternValue)
 	default:
-		log.Fatalf("Support for this pattern type (%s) does not exist yet (sorry)", patternType)
+		d.logger.Fatalf("Support for this pattern type (%s) does not exist yet (sorry)", patternType)
 		var changeList = []ChangeRequest{}
 		return changeList
 	}
+}
+
+func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
+	var changeList = []ChangeRequest{}
+	//log.Infof("searching file %s as type glob", filePath)
+	for _, candidateString := range potentialUpdatesAll {
+
+		// TODO brute force splitting by ":", this will be a problem with registries with additional :123 ports
+		// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
+		candidateStringSplit := strings.Split(candidateString, ":")
+		if len(candidateStringSplit) < 2 {
+			d.logger.Warnw("Refusing to update image",
+				"laminar.image", candidateString,
+				"laminar.file", filePath,
+				"laminar.info", "expected the format: '<registry>:<tag>",
+				"laminar.len", len(strings.Split(candidateString, ":")),
+			)
+		}
+		candidateImage := candidateStringSplit[0]
+
+		// this trick will grab the last slice
+		candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
+
+		if MatchRegex(candidateTag, patternValue, d.logger) {
+
+			index := "created"
+			tagListFromDb := d.dockerRegistryClient.CachedImagesToTagInfoListSpecificImage(
+				candidateImage,
+				index,
+			)
+
+			// shouldChange is a bool to assist with logic later
+			// changeRequest will go into a []changeList so we can record it to db one day
+			shouldChange, changeRequest := EvaluateIfImageShouldChangeRegex(
+				candidateTag,
+				tagListFromDb,
+				patternValue,
+				candidateImage,
+				filePath,
+				d.logger,
+			)
+			if shouldChange {
+				d.logger.Infow("newer tag detected",
+					"laminar.image", changeRequest.File,
+					"laminar.old", changeRequest.Old,
+					"laminar.new", changeRequest.New,
+				)
+
+				changeHappened := DoChange(changeRequest, d.logger)
+				if changeHappened {
+					d.logger.Debugw("changeList updated with changeRequest",
+						"laminar.changeRequest", changeRequest)
+					changeList = append(changeList, changeRequest)
+				}
+			}
+
+		} else {
+			d.logger.Debugw("Failed to Match Regex",
+				"laminar.candidateImage", candidateImage,
+				"laminar.candidateTag", candidateTag,
+				"laminar.pattern", patternValue,
+			)
+		}
+	}
+
+	// All changes that occured will be in this slice
+	// TODO later: record to DB/cache
+	if len(changeList) == 0 {
+		d.logger.Debugw("no changes done",
+			"laminar.changeList", changeList,
+			"laminar.filePath", filePath,
+		)
+	} else {
+		d.logger.Infow("changes to git have happened",
+			"laminar.changeList", changeList,
+			"laminar.filePath", filePath,
+		)
+	}
+	return changeList
+}
+
+func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
+	var changeList = []ChangeRequest{}
+	// TODO.. whole glob case section to its own function/package
+	//log.Infof("searching file %s as type glob", filePath)
+	for _, candidateString := range potentialUpdatesAll {
+
+		// TODO brute force splitting by ":", this will be a problem with registries with additional :123 ports
+		// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
+		candidateStringSplit := strings.Split(candidateString, ":")
+		if len(candidateStringSplit) < 2 {
+			d.logger.Warnw("Refusing to update image",
+				"laminar.image", candidateString,
+				"laminar.file", filePath,
+				"laminar.info", "expected the format: '<registry>:<tag>",
+				"laminar.len", len(strings.Split(candidateString, ":")),
+			)
+		}
+		candidateImage := candidateStringSplit[0]
+
+		// this trick will grab the last slice
+		candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
+
+		if MatchGlob(candidateTag, patternValue) {
+
+			// log.Debugw("Matched Globs",
+			// 	"candidateImage", candidateImage,
+			// 	"candidateTag", candidateTag,
+			// 	"pattern", patternValue,
+			// 	"type", patternType,
+			// )
+
+			// get a full list of tags for the image from our cache
+			index := "created"
+			tagListFromDb := d.dockerRegistryClient.CachedImagesToTagInfoListSpecificImage(
+				candidateImage,
+				index,
+			)
+
+			// shouldChange is a bool to assist with logic later
+			// changeRequest will go into a []changeList so we can record it to db one day
+			shouldChange, changeRequest := EvaluateIfImageShouldChangeGlob(
+				candidateTag,
+				tagListFromDb,
+				patternValue,
+				candidateImage,
+				filePath,
+				d.logger,
+			)
+			if shouldChange {
+				d.logger.Infow("newer tag detected",
+					"laminar.image", changeRequest.File,
+					"laminar.old", changeRequest.Old,
+					"laminar.new", changeRequest.New,
+				)
+
+				changeHappened := DoChange(changeRequest, d.logger)
+				if changeHappened {
+					d.logger.Debugw("changeList updated with changeRequest",
+						"laminar.changeRequest", changeRequest)
+					changeList = append(changeList, changeRequest)
+				}
+			}
+
+		} else {
+			d.logger.Debugw("Failed to Match Globs",
+				"laminar.candidateImage", candidateImage,
+				"laminar.candidateTag", candidateTag,
+				"laminar.pattern", patternValue,
+			)
+		}
+	}
+
+	// All changes that occured will be in this slice
+	// TODO later: record to DB/cache
+	if len(changeList) == 0 {
+		d.logger.Debugw("no changes done",
+			"laminar.changeList", changeList,
+			"laminar.filePath", filePath,
+		)
+	} else {
+		d.logger.Infow("changes to git have happened",
+			"laminar.changeList", changeList,
+			"laminar.filePath", filePath,
+		)
+	}
+	return changeList
 }
 
 // EvaluateIfImageShouldChangeGlob checks if a currentTag should be updated
