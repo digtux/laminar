@@ -34,6 +34,6 @@ func (c *Client) getAuth(key string) *ssh.PublicKeys {
 		User:   "git",
 		Signer: signer,
 	}
-	auth.HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
+	// auth.HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
 	return auth
 }
