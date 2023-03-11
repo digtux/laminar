@@ -33,24 +33,24 @@ type GitRepo struct {
 	Key               string    `yaml:"key"`
 	PollFreq          int       `yaml:"pollFreq"`
 	Name              string    `yaml:"name"`
-	RemoteConfig      bool      `yaml:"remoteConfig"` // propogate []Updates from remote git ".laminar.yaml" ?
+	RemoteConfig      bool      `yaml:"remoteConfig"` // propagate []Updates from remote git ".laminar.yaml" ?
 	Updates           []Updates `yaml:"updates,omitempty"`
 	PreCommitCommands []string  `yaml:"preCommitCommands,omitempty"`
-	//PostChange   []PostChanges `yaml:"postChange"`
+	// PostChange   []PostChanges `yaml:"postChange"`
 }
 
-//// PostChanges to do after updating a gitrepo
-//type PostChanges struct {
+// // PostChanges to do after updating a gitrepo
+// type PostChanges struct {
 //	Action string `yaml:"action"`
 //	Data   string `yaml:"data"`
-//}
+// }
 
 // Files to operate upon in a git repo
 type Files struct {
 	Path string `yaml:"path"`
 }
 
-// Update contains instructions about what to do with matching image
+// Updates contains instructions about what to do with matching image
 type Updates struct {
 	PatternString string      `yaml:"pattern"`
 	Files         []Files     `yaml:"files"`

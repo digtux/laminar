@@ -1,17 +1,15 @@
 package gitoperations
 
 import (
-	"io/ioutil"
-
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
-	crypto_ssh "golang.org/x/crypto/ssh"
+	cryptossh "golang.org/x/crypto/ssh"
+	"os"
 )
 
-func (c *Client) getSshKeySigner(fileName string) crypto_ssh.Signer {
-
+func (c *Client) getSSHKeySigner(fileName string) cryptossh.Signer {
 	fullPath := common.GetFileAbsPath(fileName, c.logger)
-	sshKey, err := ioutil.ReadFile(fullPath)
+	sshKey, err := os.ReadFile(fullPath)
 	if err != nil {
 		c.logger.Fatalw("unable to read private ssh key",
 			"file", fileName,
@@ -19,7 +17,7 @@ func (c *Client) getSshKeySigner(fileName string) crypto_ssh.Signer {
 		)
 	}
 
-	signer, err := crypto_ssh.ParsePrivateKey([]byte(sshKey))
+	signer, err := cryptossh.ParsePrivateKey(sshKey)
 	if err != nil {
 		c.logger.Fatalw("Failed to parse ssh key",
 			"action", "sshKeyParse",
@@ -31,11 +29,11 @@ func (c *Client) getSshKeySigner(fileName string) crypto_ssh.Signer {
 }
 
 func (c *Client) getAuth(key string) *ssh.PublicKeys {
-	signer := c.getSshKeySigner(key)
+	signer := c.getSSHKeySigner(key)
 	auth := &ssh.PublicKeys{
 		User:   "git",
 		Signer: signer,
 	}
-	auth.HostKeyCallback = crypto_ssh.InsecureIgnoreHostKey()
+	// auth.HostKeyCallback = cryptossh.InsecureIgnoreHostKey()
 	return auth
 }

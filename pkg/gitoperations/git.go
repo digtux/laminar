@@ -1,6 +1,7 @@
 package gitoperations
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -25,12 +26,12 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 	}
 
 	w, err := r.Worktree()
-	//w, err := stuff.Worktree()
+	// w, err := stuff.Worktree()
 	if err != nil {
 		c.logger.Fatal("Couldn't open git in %v [%v]", path, err)
 	}
 
-	//auth := getAuth(registry.Key, log)
+	// auth := getAuth(registry.Key, log)
 	c.logger.Debugw("pulling",
 		"registry", registry.URL,
 		"branch", registry.Branch,
@@ -48,16 +49,16 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 		c.logger.Errorf("Couldn't pull.. [%v]", err)
 		os.Exit(1)
 	}
-	c.logger.Debugf(c.GetCommitId(path))
+	c.logger.Debugf(c.GetCommitID(path))
 }
 
 func GetRepoPath(registry cfg.GitRepo) string {
-	replacedSlash := strings.Replace(registry.Branch, "/", "-", -1)
-	replacedColon := strings.Replace(replacedSlash, ":", "-", -1)
+	replacedSlash := strings.ReplaceAll(registry.Branch, "/", "-")
+	replacedColon := strings.ReplaceAll(replacedSlash, ":", "-")
 	return "/tmp/" + registry.URL + "-" + replacedColon
 }
 
-// All-In-One method that will do a clone and checkout
+// InitialGitCloneAndCheckout All-In-One method that will do a clone and checkout
 func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repository {
 	diskPath := GetRepoPath(registry)
 	c.logger.Debugw("Doing initialGitClone",
@@ -66,7 +67,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 		"key", registry.Key,
 	)
 
-	auth := c.getAuth(registry.Key)
+	authMethod := c.getAuth(registry.Key)
 
 	if common.IsDir(diskPath, c.logger) {
 		c.logger.Debugw("previous checkout detected.. purging it",
@@ -85,7 +86,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 	r, err := git.PlainClone(diskPath, false, &git.CloneOptions{
 		URL:           registry.URL,
 		Progress:      nil,
-		Auth:          auth,
+		Auth:          authMethod,
 		SingleBranch:  true,
 		NoCheckout:    false,
 		ReferenceName: mergeRef,
@@ -103,9 +104,12 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 	}
 
 	if err := r.Fetch(opts); err != nil {
-		c.logger.Fatalw("Error fetching remotes",
-			"error", err,
-		)
+		acceptableError := errors.New("already up-to-date")
+		if err.Error() != acceptableError.Error() {
+			c.logger.Fatalw("Error fetching remotes",
+				"error", err,
+			)
+		}
 	}
 
 	w, err := r.Worktree()
@@ -116,7 +120,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 	}
 
 	err = w.Checkout(&git.CheckoutOptions{
-		//Hash:  *rev,
+		// Hash:  *rev,
 		// Force:  true,
 		Branch: mergeRef,
 	})
@@ -130,7 +134,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 	return r
 }
 
-func (c *Client) GetCommitId(path string) string {
+func (c *Client) GetCommitID(path string) string {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		c.logger.Fatal(err)

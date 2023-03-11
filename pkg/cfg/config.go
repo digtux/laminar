@@ -3,21 +3,21 @@ package cfg
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"reflect"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v1"
 )
 
-//LoadFile will return a Config from a file (string)
+// LoadFile will return a Config from a file (string)
 func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error) {
 	log.Debugw("reading file",
 		"fileName", fileName)
-	rawYaml, err := ioutil.ReadFile(fileName)
+	rawYaml, err := os.ReadFile(fileName)
 	if err != nil {
 		log.Warnw("couldn't read file",
-			"larminar.fileName", fileName,
+			"laminar.fileName", fileName,
 		)
 		return nil, err
 	}
@@ -26,7 +26,6 @@ func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error)
 
 // ParseConfig will read a config and infer some defaults if they're omitted (one day)
 func ParseConfig(data []byte) (Config, error) {
-
 	var yamlConfig Config
 	var empty Config
 
@@ -70,13 +69,12 @@ func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (updates RemoteUpdat
 
 // ParseUpdates will read the .laminar.yaml from a repo and return its RemoteUpdates
 func ParseUpdates(data []byte, log *zap.SugaredLogger) (RemoteUpdates, error) {
-
 	var yamlUpdates RemoteUpdates
 
 	err := yaml.Unmarshal(data, &yamlUpdates)
 	if err != nil {
 		log.Warnw("yaml.Unmarshal error",
-			"larminar.error", err,
+			"laminar.error", err,
 		)
 		return RemoteUpdates{}, err
 	}

@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/jinzhu/copier"
@@ -10,7 +10,6 @@ import (
 )
 
 func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
-
 	r, stringContents := ReadFile(change.File, log)
 
 	var originalContents string
@@ -30,13 +29,12 @@ func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
 	)
 
 	// apply changes to stringContents
-	stringContents = strings.Replace(string(r), oldString, newString, -1)
+	stringContents = strings.ReplaceAll(string(r), oldString, newString)
 
 	// see if it changed
 	if originalContents != stringContents {
-
 		// write bytes to disk
-		err = ioutil.WriteFile(change.File, []byte(stringContents), 0)
+		err = os.WriteFile(change.File, []byte(stringContents), 0)
 		if err != nil {
 			fmt.Println(err)
 		}

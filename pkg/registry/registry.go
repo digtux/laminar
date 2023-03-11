@@ -31,9 +31,7 @@ func New(logger *zap.SugaredLogger, db *buntdb.DB) *Client {
 }
 
 // Exec will check if we support that docker reg and then launch an appropriate worker
-func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) {
-
-	// grok will add some defaults lest the config doesn't include em
+func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) { // grok will add some defaults lest the config doesn't include em
 	registry = grokRegistrySettings(registry)
 	c.logger.Debugw("DockerRegistry worker launching",
 		"Registry", registry,
@@ -53,10 +51,8 @@ func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) {
 	c.logger.Fatal("unable to figure out which kind of registry you have")
 }
 
-// incase some fields are missing, lets set their defaults
+// assuming these are unset fields, assume these defaults
 func grokRegistrySettings(in cfg.DockerRegistry) cfg.DockerRegistry {
-
-	// incase this is empty set it..
 	if in.TimeOut == 0 {
 		in.TimeOut = 30
 	}
@@ -67,10 +63,10 @@ func (c *Client) CachedImagesToTagInfoListSpecificImage(
 	imageString string,
 	index string,
 ) (result []TagInfo) {
-	c.db.View(func(tx *buntdb.Tx) error {
-		tx.Descend(index, func(key, val string) bool {
+	err := c.db.View(func(tx *buntdb.Tx) error {
+		err := tx.Descend(index, func(key, val string) bool {
 			// decode the data from the db
-			x := JsonStringToTagInfo(val, c.logger)
+			x := JSONStringToTagInfo(val, c.logger)
 
 			// if this image matches the imageString append it to the result
 			if x.Image == imageString {
@@ -78,16 +74,26 @@ func (c *Client) CachedImagesToTagInfoListSpecificImage(
 			}
 			return true
 		})
+		if err != nil {
+			c.logger.Debugw("buntdb tx.Descend issue",
+				"err", err)
+			return err
+		}
 		return nil
 	})
-	//log.Debugw("searched DB for images",
+	if err != nil {
+		c.logger.Debugw("buntdb tx.View() issue",
+			"error", err)
+		return nil
+	}
+	// log.Debugw("searched DB for images",
 	//	"image", imageString,
 	//	"hits", len(result),
-	//)
+	// )
 	return result
 }
 
-func JsonStringToTagInfo(s string, log *zap.SugaredLogger) TagInfo {
+func JSONStringToTagInfo(s string, log *zap.SugaredLogger) TagInfo {
 	var data TagInfo
 	err := json.Unmarshal([]byte(s), &data)
 	if err != nil {
@@ -99,10 +105,10 @@ func JsonStringToTagInfo(s string, log *zap.SugaredLogger) TagInfo {
 }
 
 func TagInfoToCache(info TagInfo, db *buntdb.DB, log *zap.SugaredLogger) {
-	StorageKey := fmt.Sprintf("TagInfo:%s:%s:%s", info.Image, info.Hash, info.Tag)
+	storeKey := fmt.Sprintf("TagInfo:%s:%s:%s", info.Image, info.Hash, info.Tag)
 
 	// TTL on tag cache, https://github.com/tidwall/buntdb#data-expiration
-	Opts := &buntdb.SetOptions{Expires: true, TTL: time.Second * 300}
+	buntOpts := &buntdb.SetOptions{Expires: true, TTL: time.Second * 300}
 
 	byteArray, err := json.Marshal(info)
 	if err != nil {
@@ -110,9 +116,8 @@ func TagInfoToCache(info TagInfo, db *buntdb.DB, log *zap.SugaredLogger) {
 	}
 
 	insertedValue := string(byteArray)
-	//log.Debugf("writing to cache: key: '%s', value: '%s'", StorageKey, insertedValue)
 	err = db.Update(func(tx *buntdb.Tx) error {
-		_, _, err := tx.Set(StorageKey, insertedValue, Opts)
+		_, _, err := tx.Set(storeKey, insertedValue, buntOpts)
 		return err
 	})
 	if err != nil {

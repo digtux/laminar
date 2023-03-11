@@ -14,9 +14,9 @@ func Open(cacheLocation string, log *zap.SugaredLogger) (db *buntdb.DB) {
 	if err != nil {
 		log.Error(err)
 	}
-	//CreateIndexJson(db, "tag", "TagInfo:*", "tag")
-	//CreateIndexJson(db, "image", "TagInfo:*", "image")
-	//CreateIndexJson(db, "created", "TagInfo:*", "created")
+	// CreateIndexJson(db, "tag", "TagInfo:*", "tag")
+	// CreateIndexJson(db, "image", "TagInfo:*", "image")
+	// CreateIndexJson(db, "created", "TagInfo:*", "created")
 
 	err = db.CreateIndex("hash", "TagInfo:*", buntdb.IndexJSON("image"))
 	if err != nil {
