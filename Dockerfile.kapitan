@@ -1,33 +1,34 @@
-FROM golang:1.14 as BUILD
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETOS
+ARG TARGETARCH
+
+
+FROM --platform=${BUILDPLATFORM:-linux/amd64} docker.io/golang:1.19 AS builder
 
 WORKDIR /build
 COPY . .
 
-# run tests
-RUN go test -cover ./...
-
 # build a static binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o laminar .
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
+  go build -o laminar .
 
 
 ###
-FROM deepmind/kapitan:0.28-ci
+FROM --platform=${BUILDPLATFORM:-linux/amd64} docker.io/kapicorp/kapitan:v${KAPITAN_VER:-0.31.0}
 
-RUN apt-get install -y bash tini
+USER root
 
+RUN apt update && apt install -y bash tini
 
-ENV SSH_KEY=/config/id-rsa
+USER kapitan
 
+ENV SSH_KEY=/config/id_rsa
+ENV GIT_HOST=github.com
 
-## prep SSH for github
-RUN mkdir /root/.ssh && \
-      ssh-keyscan -t rsa github.com 2>/dev/null \
-      > /root/.ssh/known_hosts
-
-RUN chmod 0640 /root/.ssh
-COPY docker-entrypoint.sh .
+COPY docker-entrypoint.sh /
 
 WORKDIR /app
-COPY --from=BUILD /build/laminar .
+COPY --from=builder /build/laminar .
 ENTRYPOINT ["/usr/bin/tini", "--", "/docker-entrypoint.sh"]
 

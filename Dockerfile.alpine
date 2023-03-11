@@ -1,10 +1,9 @@
-FROM golang:1.14 as BUILD
+FROM golang:1.19 as BUILD
 
 WORKDIR /build
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o laminar .
-
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build .
 
 ###
 FROM alpine
