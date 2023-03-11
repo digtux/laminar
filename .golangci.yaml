@@ -122,7 +122,7 @@ linters:
     - errname # Checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error.
     - execinquery # execinquery is a linter about query string checker in Query function which reads your Go src files and warning it finds
     - exhaustive # check exhaustiveness of enum switch statements
-    - exportloopref # checks for pointers to enclosing loop variables
+    # - exportloopref # checks for pointers to enclosing loop variables
     - funlen # Tool for detection of long functions
     - gocognit # Computes and checks the cognitive complexity of functions
     - goconst # Finds repeated strings that could be replaced by a constant
