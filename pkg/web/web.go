@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"fmt"
+	"github.com/labstack/echo/v4/middleware"
 	"go.uber.org/zap"
 	"net/http"
 	"time"
@@ -22,7 +23,7 @@ type GitHubWebHookJSON struct {
 	Action  string `json:"action"`
 	Comment struct {
 		Body string `json:"body"`
-		//UpdatedAt string `json:"updated_at"`
+		// UpdatedAt string `json:"updated_at"`
 		User struct {
 			Login string `json:"login"`
 		} `json:"user"`
@@ -45,19 +46,15 @@ type GitHubWebHookJSON struct {
 }
 
 type DockerBuildJSON struct {
-	Url               string `json:"url"`
-	DockerRegistryUrl string `json:"docker_registry_url"`
+	URL               string `json:"url"`
+	DockerRegistryURL string `json:"docker_registry_url"`
 }
 
 func stringContains(comment, value string) bool {
-
-	if bytes.Contains(
+	return bytes.Contains(
 		[]byte(comment),
 		[]byte(value),
-	) {
-		return true
-	}
-	return false
+	)
 }
 
 type Client struct {
@@ -78,8 +75,20 @@ func New(logger *zap.SugaredLogger, githubToken string) *Client {
 
 func (client *Client) StartWeb() {
 	e := echo.New()
-	e.HideBanner = true
 
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogURI:    true,
+		LogStatus: true,
+		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			client.logger.Infow("request",
+				"URI", v.URI,
+				"status", v.Status,
+				"RemoteAddr", c.Request().RemoteAddr,
+			)
+			return nil
+		},
+	}))
+	e.HideBanner = true
 	e.GET("/healthz", func(c echo.Context) (err error) {
 		return c.String(http.StatusOK, "ok")
 	})
@@ -142,10 +151,8 @@ func isIssueComment(input http.Header) bool {
 	httpHeader := "X-Github-Event"
 	// range over the k/v map of all input headers
 	for k, v := range input {
-
 		// we only care about one of these keys
 		if k == httpHeader {
-
 			// the headers values are a slice, lets see if any match
 			for _, headerValue := range v {
 				if headerValue == "issue_comment" {

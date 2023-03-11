@@ -23,16 +23,13 @@ func truncateForwardSlash(input string) string {
 		return match[2]
 	}
 	return input
-
 }
 
 func truncateTag(input string) string {
-
 	// only operate if the input is over 50 chars long
 	length := len(input)
-
 	if length > 50 {
-		// lets get the left side of the string, first 25 chars
+		// let's get the left side of the string, first 25 chars
 		maxLeft := 28
 		maxRight := 8
 

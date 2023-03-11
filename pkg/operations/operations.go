@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/gommon/log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/digtux/laminar/pkg/common"
@@ -23,45 +24,41 @@ func New(logger *zap.SugaredLogger) *Client {
 }
 
 // FindFiles returns a slice containing paths to all files found in a directory
+// NOTE: it will ignore .git folders and their contents
 func (c *Client) FindFiles(searchPath string) []string {
-
 	var result []string
 
-	// this function will handle each object inside the Walk()
-	var searchFunc = func(pathX string, infoX os.FileInfo, errX error) error {
-
-		// check for errors
-		if errX != nil {
-			//log.Warnw("FindFiles error",
-			//	"path", pathX,
-			//	"err", errX,
-			//)
-			return errX
-		}
-
-		if common.IsFile(pathX, c.logger) {
-			c.logger.Debugw("FindFiles found file",
-				"fileName", infoX.Name(),
-			)
-
-			// TODO more expressive way to ignore certain files (in git) that users may want.. eg helm charts
-			ext := filepath.Ext(pathX)
-			switch ext {
-			case ".yml":
-				result = append(result, pathX)
-			case ".yaml":
-				result = append(result, pathX)
-			default:
-				c.logger.Warnw("file not yaml, ignoring",
-					"laminar.path", pathX)
-			}
-		}
-
-		return nil
+	// regex patterns to exclude in git repo
+	// TODO: allow extending exclude pattern from config
+	skippedPatterns := []string{
+		".git/.*",
 	}
 
-	realPath := common.GetFileAbsPath(searchPath, c.logger)
-	err := filepath.Walk(realPath, searchFunc)
+	collectFiles := func(dir string, excludeList []string) (fileList []string, err error) {
+		err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if regexp.MustCompile(strings.Join(excludeList, "|")).Match([]byte(path)) {
+				return nil
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			fileList = append(fileList, path)
+			return nil
+		})
+		if err != nil {
+			c.logger.Fatalw("walk error",
+				"err", err)
+			return nil, err
+		}
+		return fileList, nil
+	}
+	targetFiles, err := collectFiles(searchPath, skippedPatterns)
+	c.logger.Debugw("FindFiles",
+		"matched", targetFiles) // TODO: probably not great logging ALL the files
+	// maybe truncate this to be friendlier, print the len()
+	// TODO: check incase len is 0
 
 	if err != nil {
 		c.logger.Debugw("file error",
@@ -92,13 +89,13 @@ func (c *Client) Search(file string, searchString string) (matches []string) {
 			// if this matches we know the string is somewhere **within a line of text**
 			// we should split that line of text (strings.Fields) and range over those to ensure that we
 			// don't count the entire line as the actual hit
-			// This should be enough for yaml (althoug I imagine it would also detect stuff in comments)
+			// This should be enough for yaml (although I imagine it would also detect stuff in comments)
 			// but it would be madness for a json operations for example..
 			for _, field := range strings.Fields(scanner.Text()) {
 				if bytes.Contains([]byte(field), pat) {
 					// val := strings.Fields(scanner.Text())[1]
 					matches = append(matches, field)
-					//log.Debug(scanner.Text())
+					// log.Debug(scanner.Text())
 				}
 			}
 		}
@@ -106,18 +103,18 @@ func (c *Client) Search(file string, searchString string) (matches []string) {
 	if err := scanner.Err(); err != nil {
 		log.Error(err)
 	}
-	//if len(matches) > 0 {
+	// if len(matches) > 0 {
 	//	log.Debugw("Search found some matches",
 	//		"searchString", searchString,
 	//		"operations", file,
 	//		"matches", matches,
 	//	)
-	//} else {
+	// } else {
 	//	log.Debugw("Search found no matches",
 	//		"searchString", searchString,
 	//		"operations", file,
 	//		"matches", matches,
 	//	)
-	//}
+	// }
 	return matches
 }

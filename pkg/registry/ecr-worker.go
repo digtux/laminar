@@ -18,8 +18,7 @@ type SortImageIds []*ecr.ImageIdentifier
 func (c SortImageIds) Len() int      { return len(c) }
 func (c SortImageIds) Swap(i, j int) { c[i], c[j] = c[j], c[i] }
 func (c SortImageIds) Less(i, j int) bool {
-
-	//fmt.Println(*c[i].ImageTag, *c[j].ImageTag)
+	// fmt.Println(*c[i].ImageTag, *c[j].ImageTag)
 	if c[i].ImageTag == nil {
 		return true
 	}
@@ -30,16 +29,13 @@ func (c SortImageIds) Less(i, j int) bool {
 }
 
 func EcrGetAuth(registry cfg.DockerRegistry) (svc *ecr.ECR) {
-
 	mySession := session.Must(session.NewSession())
 	myRegion := strings.Split(registry.Reg, ".")[3]
 	svc = ecr.New(mySession, aws.NewConfig().WithRegion(myRegion))
-
 	return svc
 }
 
 func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
-
 	timeStart := time.Now()
 	totalTags := 0
 	auth := EcrGetAuth(registry)
@@ -58,7 +54,7 @@ func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, l
 
 		name := fmt.Sprintf("%s/%s", repoName, imgName)
 		newTagsCount := EcrDescribeImageToCache(auth, name, registry, db, log)
-		totalTags = totalTags + newTagsCount
+		totalTags += newTagsCount
 	}
 
 	elapsed := time.Since(timeStart)
@@ -77,7 +73,6 @@ func EcrDescribeImageToCache(
 	db *buntdb.DB,
 	log *zap.SugaredLogger,
 ) (total int) {
-
 	total = 0
 	describeImageSettings := &ecr.DescribeImagesInput{
 		// EG: 112233445566.dkr.ecr.eu-west-2.amazonaws.com/acmecorp
@@ -115,9 +110,7 @@ func EcrDescribeImageToCache(
 				Created: *hit.ImagePushedAt,
 			}
 			TagInfoToCache(*hitTagInfo, db, log)
-
 		}
-
 	}
 	log.Debugw("indexing image complete",
 		"registryUrl", registry.Reg,

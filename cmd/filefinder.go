@@ -43,9 +43,7 @@ func (d *Daemon) UpdateFileList(gitRepo cfg.GitRepo) {
 		realPath := fmt.Sprintf("%s/%s", relativeGitPath, path)
 
 		// finally this will return all files found
-		for _, fileList := range d.opsClient.FindFiles(realPath) {
-			d.fileList = append(d.fileList, fileList)
-		}
+		d.fileList = append(d.fileList, d.opsClient.FindFiles(realPath)...)
 	}
 	d.logger.Debugw("successfully found files in gitoperations",
 		"count", len(d.fileList),

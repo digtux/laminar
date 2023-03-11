@@ -26,11 +26,10 @@ func New(logger *zap.SugaredLogger, config cfg.Global) *Client {
 }
 
 func (c *Client) executeCmd(command string, path string) {
-
 	var stdout bytes.Buffer
 
 	c.logger.Infow("executeCmd",
-		"larminar.command", command,
+		"laminar.command", command,
 	)
 
 	args := []string{"-c"}
@@ -38,7 +37,7 @@ func (c *Client) executeCmd(command string, path string) {
 	args = append(args, command)
 
 	cmd := exec.Command("sh", args...)
-	//, args...)
+	// , args...)
 	// set the location for the command
 	cmd.Dir = path
 	cmd.Stdout = &stdout
@@ -66,7 +65,9 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 
 	w, err := r.Worktree()
 	if err != nil {
-		log.Fatal("Couldn't open git in %v [%v]", path, err)
+		c.logger.Fatalw("CommitAndPush: Couldn't open git",
+			"path", path,
+			"err", err)
 	}
 
 	if len(registry.PreCommitCommands) > 0 {
@@ -77,8 +78,8 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 
 	// auth := getAuth(registry.Key)
 	c.logger.Infow("time to commit git",
-		"larminar.registry", registry.URL,
-		"larminar.branch", registry.Branch,
+		"laminar.registry", registry.URL,
+		"laminar.branch", registry.Branch,
 	)
 	// _, err = w.Add("./")
 	// if err != nil {
@@ -115,7 +116,7 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 	err = r.Push(&git.PushOptions{})
 	if err != nil {
 		// TODO: handle this error by re-cloning the repo or similar
-		// TODO: don't handle this untill there are prometheus metrics to alert us of issues
+		// TODO: don't handle this until there are prometheus metrics to alert us of issues
 		c.logger.Fatalw("Something terrible happened!!!!",
 			"error", err,
 		)

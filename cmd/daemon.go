@@ -20,7 +20,7 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "daemon",
+	Use:   "run",
 	Short: "launch laminar daemon service/server",
 	Long: `This is the laminar server and API
 
@@ -45,7 +45,7 @@ type Daemon struct {
 	logger               *zap.SugaredLogger
 	dockerRegistryClient *registry.Client
 	webClient            *web.Client
-	cacheDb              *buntdb.DB
+	cacheDB              *buntdb.DB
 	fileList             []string // list of files containing docker images urls
 	gitState             []GitState
 	dockerRegistries     map[string]cfg.DockerRegistry
@@ -60,13 +60,13 @@ func New() (d *Daemon, err error) {
 	if err != nil {
 		return nil, err
 	}
-	cacheDb := cache.Open(configCache, logger)
+	cacheDB := cache.Open(configCache, logger)
 	d = &Daemon{
 		logger:               logger,
-		dockerRegistryClient: registry.New(logger, cacheDb),
+		dockerRegistryClient: registry.New(logger, cacheDB),
 		gitState:             nil,
 		webClient:            web.New(logger, appConfig.Global.GitHubToken),
-		cacheDb:              cacheDb,
+		cacheDB:              cacheDB,
 		dockerRegistries:     mapDockerRegistries(appConfig.DockerRegistries),
 		gitConfig:            appConfig.Global,
 		gitOpsClient:         gitoperations.New(logger, appConfig.Global),
@@ -113,21 +113,32 @@ func (d *Daemon) initialiseGitState(repos []cfg.GitRepo) {
 }
 
 func (d *Daemon) Start() {
-	go d.webClient.StartWeb()
 	d.logger.Debug("opened db: ", configCache)
+	if oneShot {
+		d.masterTask()
+		os.Exit(0)
+	}
+	go d.webClient.StartWeb()
 	d.enterControlLoop()
 }
 
 func (d *Daemon) enterControlLoop() {
-	ticker := time.Tick(interval)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	doWork := func() {
+		d.masterTask()
+	}
+	// when we enter the control loop, no point waiting. just go for it
+	doWork()
+	// now await http or tick events
 	for {
 		select {
 		case repo := <-d.webClient.BuildChan:
 			d.singleRepoTask(repo)
 		case <-d.webClient.PauseChan:
 			d.pause()
-		case <-ticker:
-			d.masterTask()
+		case <-ticker.C:
+			doWork()
 		}
 	}
 }
@@ -162,7 +173,7 @@ func (d *Daemon) masterTask() {
 }
 
 func (d *Daemon) singleRepoTask(r web.DockerBuildJSON) {
-	if reg, ok := d.dockerRegistries[r.DockerRegistryUrl]; ok {
+	if reg, ok := d.dockerRegistries[r.DockerRegistryURL]; ok {
 		for _, state := range d.gitState {
 			d.updateGitRepoState(state)
 		}
@@ -189,9 +200,7 @@ func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 			realPath := fmt.Sprintf("%s/%s", relativeGitPath, p.Path)
 
 			// finally this will return all files found
-			for _, paths := range d.opsClient.FindFiles(realPath) {
-				fileList = append(fileList, paths)
-			}
+			fileList = append(fileList, d.opsClient.FindFiles(realPath)...)
 		}
 
 		for _, filePath := range fileList {
@@ -207,9 +216,7 @@ func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 					"laminar.pattern", updatePolicy.PatternString,
 				)
 				triggerCommitAndPush = true
-				for _, stuffDone := range newChanges {
-					changes = append(changes, stuffDone)
-				}
+				changes = append(changes, newChanges...)
 			}
 		}
 	}
@@ -224,9 +231,7 @@ func (d *Daemon) commitAndPush(changes []ChangeRequest, repo cfg.GitRepo) {
 	if len(changes) > 1 {
 		msg = fmt.Sprintf("%s [%d]", d.gitConfig, len(changes))
 	} else {
-		prettyMessage := nicerMessage(changes[0])
-		//fmt.Println(changes)
-		msg = fmt.Sprintf("%s", prettyMessage)
+		msg = nicerMessage(changes[0])
 	}
 	d.logger.Infow("doing commit",
 		"laminar.gitRepo", repo.URL,
@@ -269,7 +274,7 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 	} else {
 		d.logger.Warnw("repo has not been initialised",
 			"repo.URL", state.repoCfg.URL)
-		//TODO: implement initialisation of uninitialised repos (probs issue for dynamic configs)
+		// TODO: implement initialisation of uninitialised repos (probs issue for dynamic configs)
 		return
 	}
 

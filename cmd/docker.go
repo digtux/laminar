@@ -9,7 +9,6 @@ import (
 // Tags are stripped
 // the docker registries must be configured
 func (d *Daemon) FindDockerImages(fileList []string, name string) (result []string) {
-
 	for _, file := range fileList {
 		imageHit := d.opsClient.Search(file, name)
 		for _, img := range imageHit {
@@ -22,5 +21,4 @@ func (d *Daemon) FindDockerImages(fileList []string, name string) (result []stri
 	// remove duplicates
 	result = common.UniqueStrings(result)
 	return result
-
 }

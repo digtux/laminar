@@ -2,20 +2,12 @@ package cfg
 
 import (
 	"fmt"
-	"go.uber.org/zap"
 	"reflect"
 	"strings"
 	"testing"
 )
 
-func debugLogger() (log *zap.SugaredLogger) {
-	zapLogger, _ := zap.NewDevelopment()
-	sugar := zapLogger.Sugar()
-	return sugar
-}
-
 func TestParseConfig(t *testing.T) {
-
 	testData := []byte(`---
 global:
   gitUser: Laminar
@@ -59,17 +51,16 @@ git:
 		t.Error("wasn't able to read the global.gitHubToken")
 	}
 
-	if len(result.DockerRegistries) < 0 {
-		t.Error("unable to see any configured registries")
-	}
+	// if len(result.DockerRegistries) < 0 {
+	// 	t.Error("unable to see any configured registries")
+	// }
 
 	if result.GitRepos[0].Branch != "master" {
 		t.Errorf("unable to read branch from config, got: %s, expected: %s", result.GitRepos[0].Branch, "master")
 	}
-
 }
-func TestParseConfigFailure(t *testing.T) {
 
+func TestParseConfigFailure(t *testing.T) {
 	testData := []byte(`...garbage...`)
 	empty := Config{}
 	result, err := ParseConfig(testData)
@@ -79,10 +70,7 @@ func TestParseConfigFailure(t *testing.T) {
 	}
 	if err == nil {
 		t.Errorf("error should not be nil")
-	} else {
-		if !strings.Contains(err.Error(), "no data was loaded") {
-			t.Errorf("expected error: 'no data was loaded', got: '%v'", err)
-		}
+	} else if !strings.Contains(err.Error(), "no data was loaded") {
+		t.Errorf("expected error: 'no data was loaded', got: '%v'", err)
 	}
-
 }

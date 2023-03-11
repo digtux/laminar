@@ -28,11 +28,9 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&configFile, "config", "config.yaml", "yaml config file")
 	rootCmd.PersistentFlags().StringVar(&configCache, "cache", ":memory:", "cache location.. EG  'cache.db'")
-	rootCmd.PersistentFlags().DurationVar(&interval, "interval", 1*time.Minute, "interval between laminar to updating git EG: 20s, 2m, 5m, 1h20m")
-	rootCmd.PersistentFlags().DurationVar(&pauseDuration, "pause", 5*time.Minute, "pauing laminar will wait this long. EG: 20s, 1m, 5m, 1h")
-
+	rootCmd.PersistentFlags().DurationVar(&interval, "interval", 1*time.Minute, "interval between laminar git polls. EG: 20s, 2m, 5m, 1h20m")
+	rootCmd.PersistentFlags().DurationVar(&pauseDuration, "pause", 5*time.Minute, "default pause duration. EG: 20s, 1m, 5m, 1h")
 	flagSet := rootCmd.Flags()
 	flagSet.BoolVarP(&debug, "debug", "D", false, "enable debug logging")
 	flagSet.BoolVarP(&oneShot, "one-shot", "o", false, "only run laminar once (not as a persistent service)")
-
 }
