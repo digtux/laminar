@@ -1,5 +1,11 @@
 on:
   pull_request:
+  push:
+    tags:
+      - v*
+    branches:
+      - master
+      - main
 name: Test
 jobs:
   test:
