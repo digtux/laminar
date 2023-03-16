@@ -43,8 +43,13 @@ func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) { // grok
 		return
 	}
 
-	if strings.Contains(registry.Reg, "gcr") {
+	if strings.Contains(registry.Reg, "gcr.io") {
 		GcrWorker(c.db, registry, imageList, c.logger)
+		return
+	}
+
+	if strings.Contains(registry.Reg, "docker.pkg.dev") {
+		GarWorker(c.db, registry, imageList, c.logger)
 		return
 	}
 

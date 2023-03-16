@@ -3,12 +3,13 @@ package web
 import (
 	"bytes"
 	"fmt"
+	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	echopprof "github.com/sevenNt/echo-pprof"
 	"go.uber.org/zap"
 	"net/http"
 	"time"
-
-	"github.com/labstack/echo/v4"
 )
 
 type HookData struct {
@@ -58,36 +59,44 @@ func stringContains(comment, value string) bool {
 }
 
 type Client struct {
-	logger      *zap.SugaredLogger
-	PauseChan   chan time.Time
-	BuildChan   chan DockerBuildJSON
-	githubToken string
+	logger        *zap.SugaredLogger
+	PauseChan     chan time.Time
+	BuildChan     chan DockerBuildJSON
+	githubToken   string
+	listenAddress string
+	config        cfg.Config
 }
 
-func New(logger *zap.SugaredLogger, githubToken string) *Client {
+func New(logger *zap.SugaredLogger, cfg cfg.Config) *Client {
 	return &Client{
-		logger:      logger,
-		PauseChan:   make(chan time.Time),
-		BuildChan:   make(chan DockerBuildJSON),
-		githubToken: githubToken,
+		logger:        logger,
+		PauseChan:     make(chan time.Time),
+		BuildChan:     make(chan DockerBuildJSON),
+		githubToken:   cfg.Global.GitHubToken,
+		listenAddress: cfg.Global.WebAddress,
+		config:        cfg,
 	}
 }
 
 func (client *Client) StartWeb() {
 	e := echo.New()
 
+	if client.config.Global.WebDebug {
+		echopprof.Wrap(e)
+	}
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogURI:    true,
 		LogStatus: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			client.logger.Infow("request",
-				"URI", v.URI,
-				"status", v.Status,
-				"RemoteAddr", c.Request().RemoteAddr,
+			client.logger.Infow("laminar.http",
+				"laminar.http.URI", v.URI,
+				"laminar.http.status", v.Status,
+				"laminar.http.RemoteAddr", c.Request().RemoteAddr,
 			)
 			return nil
 		},
 	}))
+	e.HidePort = true
 	e.HideBanner = true
 	e.GET("/healthz", func(c echo.Context) (err error) {
 		return c.String(http.StatusOK, "ok")
@@ -100,7 +109,12 @@ func (client *Client) StartWeb() {
 		"/webhooks/build/docker",
 		client.handleDockerBuildWebhook,
 	)
-	e.Logger.Fatal(e.Start(":8080"))
+	client.logger.Infow("laminar web listener started",
+		"laminar.address", client.listenAddress)
+
+	if err := e.Start(client.listenAddress); err != http.ErrServerClosed {
+		client.logger.Fatal(err)
+	}
 }
 
 func (client *Client) handleGithubWebhook(ctx echo.Context) (err error) {

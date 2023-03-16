@@ -13,20 +13,20 @@ import (
 	"go.uber.org/zap"
 )
 
-type SortImageIds []*ecr.ImageIdentifier
-
-func (c SortImageIds) Len() int      { return len(c) }
-func (c SortImageIds) Swap(i, j int) { c[i], c[j] = c[j], c[i] }
-func (c SortImageIds) Less(i, j int) bool {
-	// fmt.Println(*c[i].ImageTag, *c[j].ImageTag)
-	if c[i].ImageTag == nil {
-		return true
-	}
-	if c[j].ImageTag == nil {
-		return false
-	}
-	return strings.Compare(*c[i].ImageTag, *c[j].ImageTag) == -1
-}
+// type SortImageIds []*ecr.ImageIdentifier
+//
+// func (c SortImageIds) Len() int      { return len(c) }
+// func (c SortImageIds) Swap(i, j int) { c[i], c[j] = c[j], c[i] }
+// func (c SortImageIds) Less(i, j int) bool {
+// 	// fmt.Println(*c[i].ImageTag, *c[j].ImageTag)
+// 	if c[i].ImageTag == nil {
+// 		return true
+// 	}
+// 	if c[j].ImageTag == nil {
+// 		return false
+// 	}
+// 	return strings.Compare(*c[i].ImageTag, *c[j].ImageTag) == -1
+// }
 
 func EcrGetAuth(registry cfg.DockerRegistry) (svc *ecr.ECR) {
 	mySession := session.Must(session.NewSession())
@@ -58,7 +58,7 @@ func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, l
 	}
 
 	elapsed := time.Since(timeStart)
-	log.Infow("ECR scan complete",
+	log.Infow("Amazon ECR scan complete",
 		"laminar.elapsed", elapsed,
 		"laminar.registry", registry.Reg,
 		"laminar.totalImages", len(imageList),

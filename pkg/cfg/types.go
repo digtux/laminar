@@ -2,10 +2,13 @@ package cfg
 
 // Global settings such as git commit user/email
 type Global struct {
+	// NOTE: when adding 'default' fields here please update TestParseConfigFailure in config_test.go
 	GitUser     string      `yaml:"gitUser"`
 	GitEmail    string      `yaml:"gitEmail"`
 	GitMessage  interface{} `yaml:"gitMessage"`
-	GitHubToken string      `yaml:"gitHubToken"`
+	GitHubToken string      `yaml:"gitHubToken"` // allow inbound webhooks from GitHub
+	WebAddress  string      `yaml:"webAddress" default:":8080"`
+	WebDebug    bool        `yaml:"webDebug" default:"false"`
 }
 
 // Config is the top level of config

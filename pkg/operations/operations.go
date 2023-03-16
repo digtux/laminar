@@ -26,8 +26,6 @@ func New(logger *zap.SugaredLogger) *Client {
 // FindFiles returns a slice containing paths to all files found in a directory
 // NOTE: it will ignore .git folders and their contents
 func (c *Client) FindFiles(searchPath string) []string {
-	var result []string
-
 	// regex patterns to exclude in git repo
 	// TODO: allow extending exclude pattern from config
 	skippedPatterns := []string{
@@ -67,7 +65,7 @@ func (c *Client) FindFiles(searchPath string) []string {
 		)
 	}
 
-	return result
+	return targetFiles
 }
 
 // Search returns a slice of hits that match a string inside a operations
