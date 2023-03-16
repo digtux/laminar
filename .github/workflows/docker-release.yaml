@@ -45,7 +45,8 @@ jobs:
     - name: Set up QEMU + binfmt
       # https://github.com/docker/buildx/issues/495#issuecomment-1043341496
       id: qemu
-      uses: docker/setup-qemu-action@v1
+      # https://github.com/docker/setup-qemu-action
+      uses: docker/setup-qemu-action@v2
       with:
         image: tonistiigi/binfmt:latest
         platforms: all
@@ -54,7 +55,8 @@ jobs:
       uses: docker/setup-buildx-action@v2
 
     - name: Log in to the Container registry
-      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      # https://github.com/docker/login-action
+      uses: docker/login-action@v2
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
@@ -62,7 +64,8 @@ jobs:
 
     - name: Extract metadata (tags, labels) for Docker
       id: dockermeta
-      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      # https://github.com/docker/metadata-action
+      uses: docker/metadata-action@v4
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
