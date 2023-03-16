@@ -1,5 +1,6 @@
 ---
 # https://github.com/golangci/golangci-lint-action
+
 name: Lint
 on:
   pull_request:
