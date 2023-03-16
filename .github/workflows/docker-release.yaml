@@ -1,0 +1,78 @@
+name: Create and publish a Docker image
+
+on:
+  push:
+    # branches:
+    # - develop
+    # - feature/*
+    tags:
+      - "*"
+
+env:
+  REGISTRY: ghcr.io
+  # IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - id: string-repo # https://github.com/ASzc/change-string-case-action
+      uses: ASzc/change-string-case-action@v5
+      with:
+        string: ${{ github.repository }}
+
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        # See: https://github.com/actions/checkout
+        fetch-depth: 0
+
+    - name: fetch git tags and GITHUB_ENV
+      id: gitfetch
+      run: |
+        export REGISTRY=ghcr.io
+        export IMAGE_NAME=${{ steps.string-repo.outputs.lowercase }}
+        export GIT_DESCRIBE=$(git describe --tags --always)
+        export FULL_IMAGE=${REGISTRY}/${IMAGE_NAME}
+        echo "FULL_IMAGE=${FULL_IMAGE}" >> ${GITHUB_ENV}
+        echo "IMAGE_NAME=${IMAGE_NAME}" >> ${GITHUB_ENV}
+        echo "GIT_DESCRIBE=${GIT_DESCRIBE}" >> ${GITHUB_ENV}
+
+    - name: Set up QEMU + binfmt
+      # https://github.com/docker/buildx/issues/495#issuecomment-1043341496
+      id: qemu
+      uses: docker/setup-qemu-action@v1
+      with:
+        image: tonistiigi/binfmt:latest
+        platforms: all
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: dockermeta
+      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+    # RE: https://github.com/actions/starter-workflows/blob/main/ci/docker-publish.yml
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        push: ${{ github.event_name != 'pull_request' }}  # Don't push on PR
+        tags: ${{ env.FULL_IMAGE }}:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}:latest
+        labels: ${{ steps.dockermeta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64,linux/arm/v6,linux/arm/v7
+
