@@ -76,7 +76,7 @@ jobs:
         context: .
         file: Dockerfile.kapitan
         push: ${{ github.event_name != 'pull_request' }}  # Don't push on PR
-        tags: ${{ env.FULL_IMAGE }}:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}-kapitan:latest
+        tags: ${{ env.FULL_IMAGE }}-kapitan:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}-kapitan:latest
         labels: ${{ steps.dockermeta.outputs.labels }}
         platforms: linux/amd64
         # platforms: linux/amd64,linux/arm64,linux/arm/v6,linux/arm/v7
@@ -87,7 +87,7 @@ jobs:
         context: .
         file: Dockerfile.alpine
         push: ${{ github.event_name != 'pull_request' }}  # Don't push on PR
-        tags: ${{ env.FULL_IMAGE }}:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}-alpine:latest
+        tags: ${{ env.FULL_IMAGE }}-alpine:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}-alpine:latest
         labels: ${{ steps.dockermeta.outputs.labels }}
         platforms: linux/amd64
 
