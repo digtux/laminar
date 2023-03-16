@@ -15,16 +15,6 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - uses: actions/checkout@v3
-    - run: go install github.com/rakyll/gotest@latest
-    - run: gotest -v ./...
-
-  test-cache:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/setup-go@v3
-      with:
-        go-version: ${{ matrix.go-version }}
-    - uses: actions/checkout@v3
     - uses: actions/cache@v3
       with:
         # In order:
@@ -40,5 +30,7 @@ jobs:
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-${{ matrix.go-version }}-
+
     - run: go install github.com/rakyll/gotest@latest
+    - run: go mod download -x
     - run: gotest -v ./...
