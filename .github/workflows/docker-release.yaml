@@ -67,12 +67,23 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
     # RE: https://github.com/actions/starter-workflows/blob/main/ci/docker-publish.yml
-    - name: Build and push Docker image
+    - name: Build and push (kapitan)
       uses: docker/build-push-action@v3
       with:
         context: .
+        file: Dockerfile.kapitan
         push: ${{ github.event_name != 'pull_request' }}  # Don't push on PR
-        tags: ${{ env.FULL_IMAGE }}:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}:latest
+        tags: ${{ env.FULL_IMAGE }}:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}-kapitan:latest
+        labels: ${{ steps.dockermeta.outputs.labels }}
+        platforms: linux/amd64,linux/arm64,linux/arm/v6,linux/arm/v7
+
+    - name: Build and push (alpine)
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        file: Dockerfile.alpine
+        push: ${{ github.event_name != 'pull_request' }}  # Don't push on PR
+        tags: ${{ env.FULL_IMAGE }}:${{ env.GIT_DESCRIBE }},${{ env.FULL_IMAGE }}-alpine:latest
         labels: ${{ steps.dockermeta.outputs.labels }}
         platforms: linux/amd64,linux/arm64,linux/arm/v6,linux/arm/v7
 
