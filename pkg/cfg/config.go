@@ -3,11 +3,11 @@ package cfg
 import (
 	"errors"
 	"fmt"
-	"os"
-	"reflect"
-
+	"github.com/creasty/defaults"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v1"
+	"os"
+	"reflect"
 )
 
 // LoadFile will return a Config from a file (string)
@@ -26,12 +26,24 @@ func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error)
 
 // ParseConfig will read a config and infer some defaults if they're omitted (one day)
 func ParseConfig(data []byte) (Config, error) {
-	var yamlConfig Config
 	var empty Config
+	// we will shove data into the "yamlConfig" obj from disk
+	yamlConfig := Config{}
 
-	_ = yaml.Unmarshal(data, &yamlConfig)
+	err := yaml.Unmarshal(data, &yamlConfig)
+	if err != nil {
+		return empty, err
+	}
+	// defaults (https://github.com/creasty/defaults)
+	// TODO: yes I know we should use viper/cobra
+	if err := defaults.Set(&yamlConfig); err != nil {
+		return empty, err
+	}
+	if err := defaults.Set(&empty); err != nil {
+		return empty, err
+	}
 
-	// lets return an error if an yaml.Unmarshal returned no new data
+	// return an error if an yaml.Unmarshal returned no new data
 	if reflect.DeepEqual(yamlConfig, empty) {
 		err := errors.New("no data was loaded")
 		return yamlConfig, err

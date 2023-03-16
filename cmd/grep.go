@@ -81,7 +81,7 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 		candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
 		if MatchRegex(candidateTag, patternValue, d.logger) {
 			index := "created"
-			tagListFromDB := d.dockerRegistryClient.CachedImagesToTagInfoListSpecificImage(
+			tagListFromDB := d.registryClient.CachedImagesToTagInfoListSpecificImage(
 				candidateImage,
 				index,
 			)
@@ -157,7 +157,7 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 		if MatchGlob(candidateTag, patternValue) {
 			// get a full list of tags for the image from our cache
 			index := "created"
-			tagListFromDB := d.dockerRegistryClient.CachedImagesToTagInfoListSpecificImage(
+			tagListFromDB := d.registryClient.CachedImagesToTagInfoListSpecificImage(
 				candidateImage,
 				index,
 			)

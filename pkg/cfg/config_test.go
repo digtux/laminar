@@ -62,9 +62,15 @@ git:
 
 func TestParseConfigFailure(t *testing.T) {
 	testData := []byte(`...garbage...`)
-	empty := Config{}
+	empty := Config{
+		Global: Global{
+			WebAddress: ":8080",
+			WebDebug:   false,
+		},
+	}
 	result, err := ParseConfig(testData)
 
+	fmt.Println(err)
 	if !reflect.DeepEqual(result, empty) {
 		t.Error("expected to load an empty struct")
 	}

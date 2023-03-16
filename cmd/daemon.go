@@ -42,16 +42,16 @@ type GitState struct {
 }
 
 type Daemon struct {
-	logger               *zap.SugaredLogger
-	dockerRegistryClient *registry.Client
-	webClient            *web.Client
-	cacheDB              *buntdb.DB
-	fileList             []string // list of files containing docker images urls
-	gitState             []GitState
-	dockerRegistries     map[string]cfg.DockerRegistry
-	gitConfig            cfg.Global
-	gitOpsClient         *gitoperations.Client
-	opsClient            *operations.Client
+	logger           *zap.SugaredLogger
+	registryClient   *registry.Client
+	webClient        *web.Client
+	cacheDB          *buntdb.DB
+	fileList         []string // list of files containing docker images urls
+	gitState         []GitState
+	dockerRegistries map[string]cfg.DockerRegistry
+	gitConfig        cfg.Global
+	gitOpsClient     *gitoperations.Client
+	opsClient        *operations.Client
 }
 
 func New() (d *Daemon, err error) {
@@ -62,15 +62,15 @@ func New() (d *Daemon, err error) {
 	}
 	cacheDB := cache.Open(configCache, logger)
 	d = &Daemon{
-		logger:               logger,
-		dockerRegistryClient: registry.New(logger, cacheDB),
-		gitState:             nil,
-		webClient:            web.New(logger, appConfig.Global.GitHubToken),
-		cacheDB:              cacheDB,
-		dockerRegistries:     mapDockerRegistries(appConfig.DockerRegistries),
-		gitConfig:            appConfig.Global,
-		gitOpsClient:         gitoperations.New(logger, appConfig.Global),
-		opsClient:            operations.New(logger),
+		cacheDB:          cacheDB,
+		dockerRegistries: mapDockerRegistries(appConfig.DockerRegistries),
+		gitConfig:        appConfig.Global,
+		gitOpsClient:     gitoperations.New(logger, appConfig.Global),
+		gitState:         nil,
+		logger:           logger,
+		opsClient:        operations.New(logger),
+		registryClient:   registry.New(logger, cacheDB),
+		webClient:        web.New(logger, appConfig),
 	}
 	d.initialiseGitState(appConfig.GitRepos)
 	return
@@ -102,6 +102,7 @@ func loadConfig(logger *zap.SugaredLogger) (appConfig cfg.Config, err error) {
 	return
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) initialiseGitState(repos []cfg.GitRepo) {
 	d.gitState = make([]GitState, len(repos))
 	for i, repoCfg := range repos {
@@ -112,6 +113,7 @@ func (d *Daemon) initialiseGitState(repos []cfg.GitRepo) {
 	}
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) Start() {
 	d.logger.Debug("opened db: ", configCache)
 	if oneShot {
@@ -122,6 +124,7 @@ func (d *Daemon) Start() {
 	d.enterControlLoop()
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) enterControlLoop() {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -143,6 +146,7 @@ func (d *Daemon) enterControlLoop() {
 	}
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) pause() {
 	d.logger.Infow("laminar paused",
 		"pauseDuration", pauseDuration,
@@ -151,6 +155,7 @@ func (d *Daemon) pause() {
 	d.logger.Infow("laminar paused expired. continuing")
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) masterTask() {
 	// from the update policies, make a list of ALL file paths which are referenced in our gitoperations repo
 	for _, state := range d.gitState {
@@ -172,6 +177,7 @@ func (d *Daemon) masterTask() {
 	}
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) singleRepoTask(r web.DockerBuildJSON) {
 	if reg, ok := d.dockerRegistries[r.DockerRegistryURL]; ok {
 		for _, state := range d.gitState {
@@ -186,6 +192,7 @@ func (d *Daemon) singleRepoTask(r web.DockerBuildJSON) {
 	}
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 	registryStrings := d.getRegistryStrings()
 	triggerCommitAndPush := false
@@ -200,7 +207,9 @@ func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 			realPath := fmt.Sprintf("%s/%s", relativeGitPath, p.Path)
 
 			// finally this will return all files found
-			fileList = append(fileList, d.opsClient.FindFiles(realPath)...)
+			filesFound := d.opsClient.FindFiles(realPath)
+			d.logger.Debugw("found files in git repo", "laminar.filesFound", filesFound)
+			fileList = append(fileList, filesFound...)
 		}
 
 		for _, filePath := range fileList {
@@ -226,26 +235,29 @@ func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 	}
 }
 
-func (d *Daemon) commitAndPush(changes []ChangeRequest, repo cfg.GitRepo) {
+//goland:noinspection GoMixedReceiverTypes
+func (d *Daemon) commitAndPush(changes []ChangeRequest, cfgGit cfg.GitRepo) {
 	msg := ""
 	if len(changes) > 1 {
-		msg = fmt.Sprintf("%s [%d]", d.gitConfig, len(changes))
+		msg = fmt.Sprintf("%s [%d]", cfgGit.Name, len(changes))
 	} else {
 		msg = nicerMessage(changes[0])
 	}
 	d.logger.Infow("doing commit",
-		"laminar.gitRepo", repo.URL,
+		"laminar.gitRepo", cfgGit.URL,
 		"laminar.msg", msg,
 	)
-	d.gitOpsClient.CommitAndPush(repo, msg)
+	d.gitOpsClient.CommitAndPush(cfgGit, msg)
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) scanDockerRegistries() {
 	for _, dockerReg := range d.dockerRegistries {
 		d.scanDockerRegistry(dockerReg)
 	}
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) scanDockerRegistry(dockerReg cfg.DockerRegistry) {
 	d.logger.Infow("scanning docker registry", "url", dockerReg.Reg)
 	foundDockerImages := d.FindDockerImages(
@@ -253,7 +265,7 @@ func (d *Daemon) scanDockerRegistry(dockerReg cfg.DockerRegistry) {
 		fmt.Sprintf(dockerReg.Reg),
 	)
 	if len(foundDockerImages) > 0 {
-		d.dockerRegistryClient.Exec(dockerReg, foundDockerImages)
+		d.registryClient.Exec(dockerReg, foundDockerImages)
 		d.logger.Infow("found images (in gitoperations) matching a configured docker registry",
 			"laminar.regName", dockerReg.Name,
 			"laminar.reg", dockerReg.Reg,
@@ -267,6 +279,7 @@ func (d *Daemon) scanDockerRegistry(dockerReg cfg.DockerRegistry) {
 	}
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) updateGitRepoState(state GitState) {
 	// Clone all repos that haven't been cloned yet
 	if state.Repo != nil {
@@ -274,7 +287,6 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 	} else {
 		d.logger.Warnw("repo has not been initialised",
 			"repo.URL", state.repoCfg.URL)
-		// TODO: implement initialisation of uninitialised repos (probs issue for dynamic configs)
 		return
 	}
 
@@ -305,7 +317,7 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 			state.repoCfg.Updates = append(state.repoCfg.Updates, update)
 		}
 	}
-	// equalise the state.. damn this needs a nice rewrite sometime
+	// equalise the state. damn this needs a nice rewrite sometime
 	d.logger.Infow("configured for",
 		"laminar.gitRepo", state.repoCfg.Name,
 		"laminar.updateRules", len(state.repoCfg.Updates),
@@ -319,6 +331,7 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 	)
 }
 
+//goland:noinspection GoMixedReceiverTypes
 func (d Daemon) getRegistryStrings() []string {
 	// this is a slice of the registry URLs as we expect to see them inside files
 	var registryStrings []string

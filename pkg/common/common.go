@@ -88,7 +88,7 @@ func GetLogger(debug bool) (zapLog *zap.SugaredLogger) {
 	// main message data into the key "msg"
 	logConfig.EncoderConfig.MessageKey = "msg"
 
-	// stdout+sterr into stdout
+	// stdout+stderr into stdout
 	logConfig.OutputPaths = []string{"stdout"}
 	logConfig.ErrorOutputPaths = []string{"stdout"}
 	zapLogger, err := logConfig.Build()
