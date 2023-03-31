@@ -4,18 +4,20 @@ ARG TARGETOS
 ARG TARGETARCH
 
 
-FROM --platform=${BUILDPLATFORM:-linux/amd64} docker.io/golang:1.19 AS builder
+FROM --platform=${BUILDPLATFORM:-linux/amd64} \
+       docker.io/golang:1.19 AS builder
 
 WORKDIR /build
 COPY . .
 
 # build a static binary
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} \
-  go build -o laminar .
+      go build -o laminar .
 
 
 ###
-FROM --platform=${BUILDPLATFORM:-linux/amd64} docker.io/kapicorp/kapitan:v${KAPITAN_VER:-0.31.0}
+FROM --platform=${BUILDPLATFORM:-linux/amd64} \
+       docker.io/kapicorp/kapitan:v${KAPITAN_VER:-0.31.0}
 
 USER root
 
