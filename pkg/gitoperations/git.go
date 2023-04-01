@@ -24,8 +24,8 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		c.logger.Errorw("error opening repo",
-			"laminar.registry", registry,
-			"laminar.error", err,
+			"registry", registry,
+			"error", err,
 		)
 	}
 
@@ -57,15 +57,8 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 	// downgrade "OK" errors to warnings
 	if err != nil {
 		switch {
-		// case errMsg == ErrNonFastForwardUpdate:
-		// 	c.logger.Warnw("pull warning",
-		// 		"error", err,
-		// 	)
-		// 	err = nil
 		case errMsg == ErrAlreadyUpToDate:
-			c.logger.Warnw("pull warning",
-				"error", err,
-			)
+			// this is OK.. we can ignore this error
 			err = nil
 		default:
 			c.logger.Fatalw("Couldn't pull from git",

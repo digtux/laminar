@@ -43,7 +43,6 @@ func getRegistries(ctx context.Context, log *zap.SugaredLogger, client artifactr
 }
 
 func GarWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
-	log.Warnw("Google Artifact Registry is BETA")
 	timeStart := time.Now()
 	totalTags := 0
 

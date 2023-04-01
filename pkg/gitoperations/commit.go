@@ -30,7 +30,7 @@ func (c *Client) executeCmd(command string, path string) {
 	var stdout bytes.Buffer
 
 	c.logger.Infow("executeCmd",
-		"laminar.command", command,
+		"command", command,
 	)
 
 	args := []string{"-c"}
@@ -49,8 +49,8 @@ func (c *Client) executeCmd(command string, path string) {
 		log.Error(err)
 	}
 	c.logger.Infow("exec",
-		"laminar.command", "sh -c "+command,
-		"laminar.output", stdout.String(),
+		"command", "sh -c "+command,
+		"output", stdout.String(),
 	)
 }
 
@@ -59,8 +59,8 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		c.logger.Errorw("error opening repo",
-			"laminar.registry", registry,
-			"laminar.error", err,
+			"registry", registry,
+			"error", err,
 		)
 	}
 
@@ -79,8 +79,8 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 
 	// auth := getAuth(registry.Key)
 	c.logger.Infow("time to commit git",
-		"laminar.registry", registry.URL,
-		"laminar.branch", registry.Branch,
+		"registry", registry.URL,
+		"branch", registry.Branch,
 	)
 	// _, err = w.Add("./")
 	// if err != nil {
@@ -101,7 +101,7 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 	})
 	if err != nil {
 		c.logger.Errorw("Error doing git commit",
-			"laminar.error", err,
+			"error", err,
 		)
 	}
 	obj, err := r.CommitObject(commit)
@@ -111,8 +111,8 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 
 	// push using default options
 	c.logger.Infow("doing git push",
-		"laminar.commit", commit,
-		"laminar.obj", obj,
+		"commit", commit,
+		"obj", obj,
 	)
 	err = r.Push(&git.PushOptions{})
 	if err != nil {
