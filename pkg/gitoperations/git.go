@@ -20,6 +20,7 @@ var ErrNonFastForwardUpdate = "non-fast-forward update"
 
 func (c *Client) Pull(registry cfg.GitRepo) {
 	path := GetRepoPath(registry)
+	branchRefName := plumbing.NewBranchReferenceName(registry.Branch)
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		c.logger.Errorw("error opening repo",
@@ -41,21 +42,26 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 		"registry", registry.URL,
 		"branch", registry.Branch,
 	)
-	err = w.Pull(&git.PullOptions{
+
+	pullOpts := &git.PullOptions{
+		ReferenceName: branchRefName,
+		// Auth:          auth,
+		Force:      true,
 		RemoteName: "origin",
 		Depth:      1,
-	})
+	}
+	err = w.Pull(pullOpts)
 
 	errMsg := fmt.Sprintf("%v", err)
 
 	// downgrade "OK" errors to warnings
 	if err != nil {
 		switch {
-		case errMsg == ErrNonFastForwardUpdate:
-			c.logger.Warnw("pull warning",
-				"error", err,
-			)
-			err = nil
+		// case errMsg == ErrNonFastForwardUpdate:
+		// 	c.logger.Warnw("pull warning",
+		// 		"error", err,
+		// 	)
+		// 	err = nil
 		case errMsg == ErrAlreadyUpToDate:
 			c.logger.Warnw("pull warning",
 				"error", err,
