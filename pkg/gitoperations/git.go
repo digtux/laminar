@@ -15,6 +15,9 @@ import (
 	"github.com/digtux/laminar/pkg/common"
 )
 
+var ErrAlreadyUpToDate = "already up-to-date"
+var ErrNonFastForwardUpdate = "non-fast-forward update"
+
 func (c *Client) Pull(registry cfg.GitRepo) {
 	path := GetRepoPath(registry)
 	r, err := git.PlainOpen(path)
@@ -26,9 +29,11 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 	}
 
 	w, err := r.Worktree()
-	// w, err := stuff.Worktree()
 	if err != nil {
-		c.logger.Fatal("Couldn't open git in %v [%v]", path, err)
+		c.logger.Fatalw("Couldn't open git",
+			"error", err,
+			"path", path,
+		)
 	}
 
 	// auth := getAuth(registry.Key, log)
@@ -40,16 +45,34 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 		RemoteName: "origin",
 		Depth:      1,
 	})
-	// TODO: replace with err.Error() and check if functions the same
-	if fmt.Sprintf("%v", err) == "already up-to-date" {
-		c.logger.Debugf("pull success, already up-to-date")
-		err = nil
-	}
+
+	errMsg := fmt.Sprintf("%v", err)
+
+	// downgrade "OK" errors to warnings
 	if err != nil {
-		c.logger.Errorf("Couldn't pull.. [%v]", err)
-		os.Exit(1)
+		switch {
+		case errMsg == ErrNonFastForwardUpdate:
+			c.logger.Warnw("pull warning",
+				"error", err,
+			)
+			err = nil
+		case errMsg == ErrAlreadyUpToDate:
+			c.logger.Warnw("pull warning",
+				"error", err,
+			)
+			err = nil
+		default:
+			c.logger.Fatalw("Couldn't pull from git",
+				"error", err,
+				"errMsg", errMsg,
+				"registry", registry,
+			)
+		}
 	}
-	c.logger.Debugf(c.GetCommitID(path))
+	c.logger.Infow("Git Pull OK",
+		"resgisty", registry,
+		"commitID", c.GetCommitID(path),
+	)
 }
 
 func GetRepoPath(registry cfg.GitRepo) string {
@@ -130,6 +153,12 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 			"error", err,
 		)
 	}
+
+	c.logger.Infow("successful checkout",
+		"url", registry.URL,
+		"branch", registry.Branch,
+		"key", registry.Key,
+	)
 
 	return r
 }

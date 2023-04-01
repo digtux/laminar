@@ -3,11 +3,12 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/tidwall/buntdb"
 	"go.uber.org/zap"
-	"strings"
-	"time"
 )
 
 // TagInfo is the official data stored in buntDB

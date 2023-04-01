@@ -2,12 +2,13 @@ package common
 
 import (
 	"fmt"
-	"github.com/mattn/go-colorable"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+
+	"github.com/mattn/go-colorable"
+	"go.uber.org/zap/zapcore"
 
 	"go.uber.org/zap"
 )
@@ -76,7 +77,9 @@ func GetLogger(debug bool) (zapLog *zap.SugaredLogger) {
 		)
 		sugar := zapLogger.Sugar()
 		sugar.Debug("debug enabled")
-		return sugar
+		return sugar.With(
+			zap.Namespace("laminar"),
+		)
 	}
 	// Override the default zap production Config a little
 	// NewProductionConfig is json
@@ -96,5 +99,7 @@ func GetLogger(debug bool) (zapLog *zap.SugaredLogger) {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	return zapLogger.Sugar()
+	return zapLogger.Sugar().With(
+		zap.Namespace("laminar"),
+	)
 }

@@ -2,10 +2,11 @@ package gitoperations
 
 import (
 	"bytes"
-	"github.com/labstack/gommon/log"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/labstack/gommon/log"
 
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/go-git/go-git/v5"

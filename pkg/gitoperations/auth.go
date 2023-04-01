@@ -1,10 +1,11 @@
 package gitoperations
 
 import (
+	"os"
+
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	cryptossh "golang.org/x/crypto/ssh"
-	"os"
 )
 
 func (c *Client) getSSHKeySigner(fileName string) cryptossh.Signer {

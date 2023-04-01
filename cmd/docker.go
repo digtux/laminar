@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/digtux/laminar/pkg/common"
 	"strings"
+
+	"github.com/digtux/laminar/pkg/common"
 )
 
 // FindDockerImages returns sorted and unique list of all docker images

@@ -3,11 +3,12 @@ package operations
 import (
 	"bufio"
 	"bytes"
-	"github.com/labstack/gommon/log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/labstack/gommon/log"
 
 	"github.com/digtux/laminar/pkg/common"
 	"go.uber.org/zap"
@@ -54,9 +55,8 @@ func (c *Client) FindFiles(searchPath string) []string {
 	}
 	targetFiles, err := collectFiles(searchPath, skippedPatterns)
 	c.logger.Debugw("FindFiles",
-		"matched", targetFiles) // TODO: probably not great logging ALL the files
-	// maybe truncate this to be friendlier, print the len()
-	// TODO: check incase len is 0
+		"matchedFileCount", len(targetFiles),
+	)
 
 	if err != nil {
 		c.logger.Debugw("file error",

@@ -3,11 +3,12 @@ package cfg
 import (
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
+
 	"github.com/creasty/defaults"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v1"
-	"os"
-	"reflect"
 )
 
 // LoadFile will return a Config from a file (string)

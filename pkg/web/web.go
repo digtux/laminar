@@ -3,13 +3,14 @@ package web
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	echopprof "github.com/sevenNt/echo-pprof"
 	"go.uber.org/zap"
-	"net/http"
-	"time"
 )
 
 type HookData struct {

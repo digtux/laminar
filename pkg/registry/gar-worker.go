@@ -1,16 +1,17 @@
 package registry
 
 import (
-	artifactregistry "cloud.google.com/go/artifactregistry/apiv1"
-	"cloud.google.com/go/artifactregistry/apiv1/artifactregistrypb"
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
+	artifactregistry "cloud.google.com/go/artifactregistry/apiv1"
+	"cloud.google.com/go/artifactregistry/apiv1/artifactregistrypb"
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/tidwall/buntdb"
 	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
-	"strings"
-	"time"
 )
 
 // getRegistries will attempt to find google artifact registries from an example docker image string

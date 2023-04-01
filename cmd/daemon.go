@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/web"
 	"github.com/pkg/errors"
 	"github.com/tidwall/buntdb"
-	"os"
-	"time"
 
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/cfg"
@@ -327,7 +328,7 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 	// we are ready to dispatch this to start searching the contents of these files
 	d.logger.Debugw("matched files in gitoperations",
 		"laminar.GitRepo", state.repoCfg.Name,
-		"laminar.fileList", d.fileList,
+		"laminar.fileListCount", len(d.fileList),
 	)
 }
 
