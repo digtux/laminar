@@ -71,10 +71,10 @@ func GarWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, l
 
 	elapsed := time.Since(timeStart)
 	log.Infow("Google Artifact Registry scan complete",
-		"laminar.elapsed", elapsed,
-		"laminar.registry", registry.Reg,
-		"laminar.totalUniqueImages", len(imageList),
-		"laminar.totalTags", totalTags,
+		"elapsed", elapsed,
+		"registry", registry.Reg,
+		"totalUniqueImages", len(imageList),
+		"totalTags", totalTags,
 	)
 }
 
