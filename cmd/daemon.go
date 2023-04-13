@@ -2,21 +2,21 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/digtux/laminar/pkg/common"
+	"os"
+	"time"
+
 	"github.com/digtux/laminar/pkg/web"
 	"github.com/pkg/errors"
 	"github.com/tidwall/buntdb"
-	"os"
-	"time"
 
 	"github.com/digtux/laminar/pkg/cache"
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/gitoperations"
+	"github.com/digtux/laminar/pkg/logger"
 	"github.com/digtux/laminar/pkg/operations"
 	"github.com/digtux/laminar/pkg/registry"
 	"github.com/go-git/go-git/v5"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 )
 
 var rootCmd = &cobra.Command{
@@ -42,7 +42,6 @@ type GitState struct {
 }
 
 type Daemon struct {
-	logger           *zap.SugaredLogger
 	registryClient   *registry.Client
 	webClient        *web.Client
 	cacheDB          *buntdb.DB
@@ -55,22 +54,20 @@ type Daemon struct {
 }
 
 func New() (d *Daemon, err error) {
-	logger := common.GetLogger(debug)
-	appConfig, err := loadConfig(logger)
+	appConfig, err := loadConfig()
 	if err != nil {
 		return nil, err
 	}
-	cacheDB := cache.Open(configCache, logger)
+	cacheDB := cache.Open(configCache)
 	d = &Daemon{
 		cacheDB:          cacheDB,
 		dockerRegistries: mapDockerRegistries(appConfig.DockerRegistries),
 		gitConfig:        appConfig.Global,
-		gitOpsClient:     gitoperations.New(logger, appConfig.Global),
+		gitOpsClient:     gitoperations.New(appConfig.Global),
 		gitState:         nil,
-		logger:           logger,
-		opsClient:        operations.New(logger),
-		registryClient:   registry.New(logger, cacheDB),
-		webClient:        web.New(logger, appConfig),
+		opsClient:        operations.New(),
+		registryClient:   registry.New(cacheDB),
+		webClient:        web.New(appConfig),
 	}
 	d.initialiseGitState(appConfig.GitRepos)
 	return
@@ -84,9 +81,9 @@ func mapDockerRegistries(registries []cfg.DockerRegistry) map[string]cfg.DockerR
 	return result
 }
 
-func loadConfig(logger *zap.SugaredLogger) (appConfig cfg.Config, err error) {
+func loadConfig() (appConfig cfg.Config, err error) {
 	var rawFile []byte
-	if rawFile, err = cfg.LoadFile(configFile, logger); err == nil {
+	if rawFile, err = cfg.LoadFile(configFile); err == nil {
 		if appConfig, err = cfg.ParseConfig(rawFile); err != nil {
 			err = errors.Wrap(err, "error parsing config file")
 		}
@@ -115,7 +112,7 @@ func (d *Daemon) initialiseGitState(repos []cfg.GitRepo) {
 
 //goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) Start() {
-	d.logger.Debug("opened db: ", configCache)
+	logger.Debug("opened db: ", configCache)
 	if oneShot {
 		d.masterTask()
 		os.Exit(0)
@@ -148,11 +145,11 @@ func (d *Daemon) enterControlLoop() {
 
 //goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) pause() {
-	d.logger.Infow("laminar paused",
+	logger.Infow("laminar paused",
 		"pauseDuration", pauseDuration,
 	)
 	<-time.Tick(pauseDuration)
-	d.logger.Infow("laminar paused expired. continuing")
+	logger.Infow("laminar paused expired. continuing")
 }
 
 //goland:noinspection GoMixedReceiverTypes
@@ -172,7 +169,7 @@ func (d *Daemon) masterTask() {
 		d.updateFiles(*state.repoCfg)
 	}
 	if oneShot {
-		d.logger.Warn("--one-shot detected.. laminar is now terminating")
+		logger.Warn("--one-shot detected.. laminar is now terminating")
 		os.Exit(0)
 	}
 }
@@ -208,19 +205,19 @@ func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 
 			// finally this will return all files found
 			filesFound := d.opsClient.FindFiles(realPath)
-			d.logger.Debugw("found files in git repo", "laminar.filesFound", filesFound)
+			logger.Debugw("found files in git repo", "laminar.filesFound", filesFound)
 			fileList = append(fileList, filesFound...)
 		}
 
 		for _, filePath := range fileList {
-			d.logger.Debugw("applying update policy",
+			logger.Debugw("applying update policy",
 				"laminar.file", filePath,
 				"laminar.pattern", updatePolicy.PatternString,
 				"laminar.blacklist", updatePolicy.BlackList,
 			)
 			newChanges := d.doUpdate(filePath, updatePolicy, registryStrings)
 			if len(newChanges) > 0 {
-				d.logger.Infow("updates desired",
+				logger.Infow("updates desired",
 					"laminar.file", filePath,
 					"laminar.pattern", updatePolicy.PatternString,
 				)
@@ -243,7 +240,7 @@ func (d *Daemon) commitAndPush(changes []ChangeRequest, cfgGit cfg.GitRepo) {
 	} else {
 		msg = nicerMessage(changes[0])
 	}
-	d.logger.Infow("doing commit",
+	logger.Infow("doing commit",
 		"laminar.gitRepo", cfgGit.URL,
 		"laminar.msg", msg,
 	)
@@ -259,20 +256,20 @@ func (d *Daemon) scanDockerRegistries() {
 
 //goland:noinspection GoMixedReceiverTypes
 func (d *Daemon) scanDockerRegistry(dockerReg cfg.DockerRegistry) {
-	d.logger.Infow("scanning docker registry", "url", dockerReg.Reg)
+	logger.Infow("scanning docker registry", "url", dockerReg.Reg)
 	foundDockerImages := d.FindDockerImages(
 		d.fileList,
 		fmt.Sprintf(dockerReg.Reg),
 	)
 	if len(foundDockerImages) > 0 {
 		d.registryClient.Exec(dockerReg, foundDockerImages)
-		d.logger.Infow("found images (in gitoperations) matching a configured docker registry",
+		logger.Infow("found images (in gitoperations) matching a configured docker registry",
 			"laminar.regName", dockerReg.Name,
 			"laminar.reg", dockerReg.Reg,
 			"laminar.imageCount", len(foundDockerImages),
 		)
 	} else {
-		d.logger.Infow("no images tags found.. ensure the full <image>:<tag> strings present",
+		logger.Infow("no images tags found.. ensure the full <image>:<tag> strings present",
 			"laminar.regName", dockerReg.Name,
 			"laminar.reg", dockerReg.Reg,
 		)
@@ -285,7 +282,7 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 	if state.Repo != nil {
 		d.gitOpsClient.Pull(*state.repoCfg)
 	} else {
-		d.logger.Warnw("repo has not been initialised",
+		logger.Warnw("repo has not been initialised",
 			"repo.URL", state.repoCfg.URL)
 		return
 	}
@@ -294,13 +291,13 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 	// if RemoteConfig is set we want to attempt to read '.laminar.yaml' from the remote repo
 	repoPath := gitoperations.GetRepoPath(*state.repoCfg)
 	if state.repoCfg.RemoteConfig {
-		d.logger.Debugw("'remote config' == True.. will attempt to update config dynamically",
+		logger.Debugw("'remote config' == True.. will attempt to update config dynamically",
 			"laminar.repo", state.repoCfg.Name,
 		)
 
-		remoteUpdates, err := cfg.GetUpdatesFromGit(repoPath, d.logger)
+		remoteUpdates, err := cfg.GetUpdatesFromGit(repoPath)
 		if err != nil {
-			d.logger.Warnw("Laminar was told to look at .laminar.yaml but failed",
+			logger.Warnw("Laminar was told to look at .laminar.yaml but failed",
 				"laminar.repo", state.repoCfg.Name,
 				"laminar.path", repoPath,
 				"laminar.error", err,
@@ -311,21 +308,21 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 		state.repoCfg.Updates = make([]cfg.Updates, 0)
 		// now assemble that list for this run
 		for _, update := range remoteUpdates.Updates {
-			d.logger.Infow("using 'remote config' from gitoperations repo .laminar.yaml",
+			logger.Infow("using 'remote config' from gitoperations repo .laminar.yaml",
 				"laminar.update", update,
 			)
 			state.repoCfg.Updates = append(state.repoCfg.Updates, update)
 		}
 	}
 	// equalise the state. damn this needs a nice rewrite sometime
-	d.logger.Infow("configured for",
+	logger.Infow("configured for",
 		"laminar.gitRepo", state.repoCfg.Name,
 		"laminar.updateRules", len(state.repoCfg.Updates),
 	)
 	d.UpdateFileList(*state.repoCfg)
 
 	// we are ready to dispatch this to start searching the contents of these files
-	d.logger.Debugw("matched files in gitoperations",
+	logger.Debugw("matched files in gitoperations",
 		"laminar.GitRepo", state.repoCfg.Name,
 		"laminar.fileList", d.fileList,
 	)

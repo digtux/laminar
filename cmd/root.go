@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"time"
+
+	"github.com/digtux/laminar/pkg/logger"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -33,4 +35,11 @@ func init() {
 	flagSet := rootCmd.Flags()
 	flagSet.BoolVarP(&debug, "debug", "D", false, "enable debug logging")
 	flagSet.BoolVarP(&oneShot, "one-shot", "o", false, "only run laminar once (not as a persistent service)")
+
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if err := logger.InitLogger(debug); err != nil {
+			return err
+		}
+		return nil
+	}
 }

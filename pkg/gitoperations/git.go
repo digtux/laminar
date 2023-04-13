@@ -13,13 +13,14 @@ import (
 
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
+	"github.com/digtux/laminar/pkg/logger"
 )
 
 func (c *Client) Pull(registry cfg.GitRepo) {
 	path := GetRepoPath(registry)
 	r, err := git.PlainOpen(path)
 	if err != nil {
-		c.logger.Errorw("error opening repo",
+		logger.Errorw("error opening repo",
 			"laminar.registry", registry,
 			"laminar.error", err,
 		)
@@ -28,11 +29,11 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 	w, err := r.Worktree()
 	// w, err := stuff.Worktree()
 	if err != nil {
-		c.logger.Fatal("Couldn't open git in %v [%v]", path, err)
+		logger.Fatal("Couldn't open git in %v [%v]", path, err)
 	}
 
 	// auth := getAuth(registry.Key, log)
-	c.logger.Debugw("pulling",
+	logger.Debugw("pulling",
 		"registry", registry.URL,
 		"branch", registry.Branch,
 	)
@@ -42,14 +43,14 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 	})
 	// TODO: replace with err.Error() and check if functions the same
 	if fmt.Sprintf("%v", err) == "already up-to-date" {
-		c.logger.Debugf("pull success, already up-to-date")
+		logger.Debugf("pull success, already up-to-date")
 		err = nil
 	}
 	if err != nil {
-		c.logger.Errorf("Couldn't pull.. [%v]", err)
+		logger.Errorf("Couldn't pull.. [%v]", err)
 		os.Exit(1)
 	}
-	c.logger.Debugf(c.GetCommitID(path))
+	logger.Debugf(c.GetCommitID(path))
 }
 
 func GetRepoPath(registry cfg.GitRepo) string {
@@ -61,7 +62,7 @@ func GetRepoPath(registry cfg.GitRepo) string {
 // InitialGitCloneAndCheckout All-In-One method that will do a clone and checkout
 func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repository {
 	diskPath := GetRepoPath(registry)
-	c.logger.Debugw("Doing initialGitClone",
+	logger.Debugw("Doing initialGitClone",
 		"url", registry.URL,
 		"branch", registry.Branch,
 		"key", registry.Key,
@@ -69,13 +70,13 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 
 	authMethod := c.getAuth(registry.Key)
 
-	if common.IsDir(diskPath, c.logger) {
-		c.logger.Debugw("previous checkout detected.. purging it",
+	if common.IsDir(diskPath) {
+		logger.Debugw("previous checkout detected.. purging it",
 			"path", diskPath,
 		)
 		err := os.RemoveAll(diskPath)
 		if err != nil {
-			c.logger.Fatalw("couldn't remove dir",
+			logger.Fatalw("couldn't remove dir",
 				"diskPath", diskPath,
 				"error", err,
 			)
@@ -92,7 +93,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 		ReferenceName: mergeRef,
 	})
 	if err != nil {
-		c.logger.Fatalw("unable to clone the git repo",
+		logger.Fatalw("unable to clone the git repo",
 			"gitRepo", registry.URL,
 			"error", err,
 		)
@@ -106,7 +107,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 	if err := r.Fetch(opts); err != nil {
 		acceptableError := errors.New("already up-to-date")
 		if err.Error() != acceptableError.Error() {
-			c.logger.Fatalw("Error fetching remotes",
+			logger.Fatalw("Error fetching remotes",
 				"error", err,
 			)
 		}
@@ -114,7 +115,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 
 	w, err := r.Worktree()
 	if err != nil {
-		c.logger.Fatalw("unable to get Worktree of the repo",
+		logger.Fatalw("unable to get Worktree of the repo",
 			"error", err,
 		)
 	}
@@ -126,7 +127,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 	})
 
 	if err != nil {
-		c.logger.Fatalw("Error checking out branch",
+		logger.Fatalw("Error checking out branch",
 			"error", err,
 		)
 	}
@@ -137,16 +138,16 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 func (c *Client) GetCommitID(path string) string {
 	r, err := git.PlainOpen(path)
 	if err != nil {
-		c.logger.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	ref, err := r.Head()
 	if err != nil {
-		c.logger.Fatal(err)
+		logger.Fatal(err)
 	}
 	commit, err := r.CommitObject(ref.Hash())
 	if err != nil {
-		c.logger.Fatal(err)
+		logger.Fatal(err)
 	}
 	return fmt.Sprint(commit.Hash)
 }

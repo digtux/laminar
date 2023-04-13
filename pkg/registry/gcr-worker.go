@@ -4,21 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/logger"
 	"github.com/google/go-containerregistry/pkg/gcrane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/tidwall/buntdb"
-	"go.uber.org/zap"
 )
 
-func GcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
-	log.Fatalw("Sorry, GCR is not supported yet..")
+func GcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string) {
+	logger.Fatalw("Sorry, GCR is not supported yet..")
 	// TODO: GCR support
 	root := registry.Reg
 	ctx := context.Background()
 	err := ls(ctx, root, true, false)
-	log.Fatalw("Sorry, no GCR support yet",
+	logger.Fatalw("Sorry, no GCR support yet",
 		"error", err,
 	)
 }

@@ -3,24 +3,22 @@ package operations
 import (
 	"bufio"
 	"bytes"
-	"github.com/labstack/gommon/log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/labstack/gommon/log"
+
 	"github.com/digtux/laminar/pkg/common"
-	"go.uber.org/zap"
+	"github.com/digtux/laminar/pkg/logger"
 )
 
 type Client struct {
-	logger *zap.SugaredLogger
 }
 
-func New(logger *zap.SugaredLogger) *Client {
-	return &Client{
-		logger: logger,
-	}
+func New() *Client {
+	return &Client{}
 }
 
 // FindFiles returns a slice containing paths to all files found in a directory
@@ -46,20 +44,20 @@ func (c *Client) FindFiles(searchPath string) []string {
 			return nil
 		})
 		if err != nil {
-			c.logger.Fatalw("walk error",
+			logger.Fatalw("walk error",
 				"err", err)
 			return nil, err
 		}
 		return fileList, nil
 	}
 	targetFiles, err := collectFiles(searchPath, skippedPatterns)
-	c.logger.Debugw("FindFiles",
+	logger.Debugw("FindFiles",
 		"matched", targetFiles) // TODO: probably not great logging ALL the files
 	// maybe truncate this to be friendlier, print the len()
 	// TODO: check incase len is 0
 
 	if err != nil {
-		c.logger.Debugw("file error",
+		logger.Debugw("file error",
 			"path", searchPath,
 			"error", err,
 		)
@@ -73,7 +71,7 @@ func (c *Client) FindFiles(searchPath string) []string {
 // it should work on other types but YMMV
 func (c *Client) Search(file string, searchString string) (matches []string) {
 	pat := []byte(searchString)
-	fp := common.GetFileAbsPath(file, c.logger)
+	fp := common.GetFileAbsPath(file)
 	f, err := os.Open(fp)
 	if err != nil {
 		log.Fatal(err)

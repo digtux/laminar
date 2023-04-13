@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/gitoperations"
+	"github.com/digtux/laminar/pkg/logger"
 )
 
 // UpdateFileList returns a list of files found in the gitoperations repo
@@ -13,7 +15,7 @@ import (
 // TODO: how does this play with .gitoperations files? we probably want to filter+exclude them here
 // TODO: might want to exclude tarballs and other kind of things also I guess..
 func (d *Daemon) UpdateFileList(gitRepo cfg.GitRepo) {
-	d.logger.Info("updating Daemon's file list")
+	logger.Info("updating Daemon's file list")
 
 	// empty the list of files found
 	d.fileList = make([]string, 0)
@@ -24,7 +26,7 @@ func (d *Daemon) UpdateFileList(gitRepo cfg.GitRepo) {
 	// only IF the gitRepo specifies the name of our gitRepo
 	for _, update := range gitRepo.Updates {
 		for _, p := range update.Files {
-			d.logger.Debugw("FileFinder searching for files",
+			logger.Debugw("FileFinder searching for files",
 				"path", p.Path,
 				"gitRepo", gitRepo.URL,
 				"branch", gitRepo.Branch,
@@ -45,7 +47,7 @@ func (d *Daemon) UpdateFileList(gitRepo cfg.GitRepo) {
 		// finally this will return all files found
 		d.fileList = append(d.fileList, d.opsClient.FindFiles(realPath)...)
 	}
-	d.logger.Debugw("successfully found files in gitoperations",
+	logger.Debugw("successfully found files in gitoperations",
 		"count", len(d.fileList),
 	)
 }
