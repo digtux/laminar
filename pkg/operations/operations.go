@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/labstack/gommon/log"
-
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/logger"
 )
@@ -74,7 +72,7 @@ func (c *Client) Search(file string, searchString string) (matches []string) {
 	fp := common.GetFileAbsPath(file)
 	f, err := os.Open(fp)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	defer f.Close()
 
@@ -97,7 +95,7 @@ func (c *Client) Search(file string, searchString string) (matches []string) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		log.Error(err)
+		logger.Error(err)
 	}
 	// if len(matches) > 0 {
 	//	log.Debugw("Search found some matches",

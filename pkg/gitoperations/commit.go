@@ -6,8 +6,6 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/labstack/gommon/log"
-
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/logger"
 	"github.com/go-git/go-git/v5"
@@ -44,7 +42,7 @@ func (c *Client) executeCmd(command string, path string) {
 	// run it
 	err := cmd.Run()
 	if err != nil {
-		log.Error(err)
+		logger.Error(err)
 	}
 	logger.Infow("exec",
 		"laminar.command", "sh -c "+command,
@@ -104,7 +102,7 @@ func (c *Client) CommitAndPush(registry cfg.GitRepo, message string) {
 	}
 	obj, err := r.CommitObject(commit)
 	if err != nil {
-		log.Error(err)
+		logger.Error(err)
 	}
 
 	// push using default options
