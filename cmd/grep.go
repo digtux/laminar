@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Masterminds/semver"
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/logger"
@@ -56,86 +55,11 @@ func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings 
 		return d.caseGlob(filePath, potentialUpdatesAll, patternValue)
 	case "regex":
 		return d.caseRegex(filePath, potentialUpdatesAll, patternValue)
-	case "semver":
-		return d.caseSemver(filePath, potentialUpdatesAll, patternValue)
 	default:
 		logger.Fatalf("Support for this pattern type (%s) does not exist yet (sorry)", patternType)
 		var changeList []ChangeRequest
 		return changeList
 	}
-}
-
-func (d *Daemon) caseSemver(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
-	var changeList []ChangeRequest
-	for _, candidateString := range potentialUpdatesAll {
-		// TODO brute force splitting by ":", this will be a problem with registries with additional :123 ports
-		// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
-		candidateStringSplit := strings.Split(candidateString, ":")
-		if len(candidateStringSplit) < 2 {
-			logger.Warnw("Refusing to update image",
-				"laminar.image", candidateString,
-				"laminar.file", filePath,
-				"laminar.info", "expected the format: '<registry>:<tag>",
-				"laminar.len", len(strings.Split(candidateString, ":")),
-			)
-		}
-		candidateImage := candidateStringSplit[0]
-
-		// this trick will grab the last slice
-		candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
-		if MatchSemver(candidateTag, patternValue) {
-			index := "created"
-			tagListFromDB := d.registryClient.CachedImagesToTagInfoListSpecificImage(
-				candidateImage,
-				index,
-			)
-
-			// shouldChange is a bool to assist with logic later
-			// changeRequest will go into a []changeList, so we can record it to db one day
-			shouldChange, changeRequest := EvaluateIfImageShouldChangeRegex(
-				candidateTag,
-				tagListFromDB,
-				patternValue,
-				candidateImage,
-				filePath,
-			)
-			if shouldChange {
-				logger.Infow("newer tag detected",
-					"laminar.image", changeRequest.File,
-					"laminar.old", changeRequest.Old,
-					"laminar.new", changeRequest.New,
-				)
-
-				changeHappened := DoChange(changeRequest)
-				if changeHappened {
-					logger.Debugw("changeList updated with changeRequest",
-						"laminar.changeRequest", changeRequest)
-					changeList = append(changeList, changeRequest)
-				}
-			}
-		} else {
-			logger.Debugw("Failed to Match Semver",
-				"laminar.candidateImage", candidateImage,
-				"laminar.candidateTag", candidateTag,
-				"laminar.pattern", patternValue,
-			)
-		}
-	}
-
-	// All changes that occurred will be in this slice
-	// TODO later: record to DB/cache
-	if len(changeList) == 0 {
-		logger.Debugw("no changes done",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
-		)
-	} else {
-		logger.Infow("changes to git have happened",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
-		)
-	}
-	return changeList
 }
 
 func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
@@ -165,13 +89,12 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 
 			// shouldChange is a bool to assist with logic later
 			// changeRequest will go into a []changeList, so we can record it to db one day
-			shouldChange, changeRequest := EvaluateIfImageShouldChange(
+			shouldChange, changeRequest := EvaluateIfImageShouldChangeRegex(
 				candidateTag,
 				tagListFromDB,
 				patternValue,
 				candidateImage,
 				filePath,
-				MatchSemver,
 			)
 			if shouldChange {
 				logger.Infow("newer tag detected",
@@ -298,59 +221,6 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 // NOTE: if the currentTag is not indexed in the cache (eg the tag disappeared from docker registry)
 //
 //	it will assume that **every tag is more recent than the current one**
-func EvaluateIfImageShouldChange(
-	currentTag string,
-	cachedTagList []registry.TagInfo,
-	patternValue string,
-	image string,
-	file string,
-	matchingFunction func(string, string) bool,
-) (
-	intent bool,
-	cr ChangeRequest,
-) {
-	// first lets just be 100% that the currentTag matches the glob
-	if matchingFunction(currentTag, patternValue) {
-		// This list assumes descending by time, so the first glob match (if any) will be correct
-		for _, potentialTag := range cachedTagList {
-			// check tag matches. also "latest" is forbidden
-			if matchingFunction(potentialTag.Tag, patternValue) && potentialTag.Tag != "latest" {
-				// exclude identical tags from git+registry
-				if potentialTag.Tag != currentTag {
-					cr = ChangeRequest{
-						Old:          currentTag,
-						New:          potentialTag.Tag,
-						Time:         time.Now(),
-						PatternType:  "glob",
-						PatternValue: patternValue,
-						Image:        image,
-						File:         file,
-					}
-					return true, cr
-				}
-				return false, cr
-			}
-		}
-		return false, cr
-	}
-	logger.Warnw("sorry, pattern doesn't match",
-		"laminar.currentTag", currentTag,
-		"laminar.patternValue", patternValue,
-	)
-	return false, cr
-}
-
-// EvaluateIfImageShouldChangeGlob checks if a currentTag should be updated
-// required:
-// - currentTag (string)
-// - []TagInfo list of tags from cache (candidates to be promoted)
-// - glob-string (all tags must match)
-// returns (intent bool, struct ChangeRecord{})
-// ChangeRecord? we can record the ChangeRecord in the DB for potential "undo" button (One day)
-// this function will evaluate "created" timestamps to ensure it has the latest match glob tag
-// NOTE: if the currentTag is not indexed in the cache (eg the tag disappeared from docker registry)
-//
-//	it will assume that **every tag is more recent than the current one**
 func EvaluateIfImageShouldChangeGlob(
 	currentTag string,
 	cachedTagList []registry.TagInfo,
@@ -408,26 +278,6 @@ func MatchRegex(input string, regexPattern string) bool {
 	logger.Debugw("comparing regex:",
 		"laminar.input", input,
 		"laminar.pattern", regexPattern,
-		"laminar.result", match,
-	)
-	return match
-}
-
-// MatchSemver accepts a semver pattern then an input string
-func MatchSemver(input string, semverPattern string) bool {
-	constraint, err := semver.NewConstraint(semverPattern)
-
-	if err != nil {
-		logger.Fatal("bad semver supplied")
-	}
-
-	version, err := semver.NewVersion(input)
-
-	match := constraint.Check(version)
-
-	logger.Debugw("comparing semver:",
-		"laminar.input", input,
-		"laminar.pattern", semverPattern,
 		"laminar.result", match,
 	)
 	return match
