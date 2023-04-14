@@ -11,7 +11,6 @@ require (
 	github.com/google/go-containerregistry v0.13.0
 	github.com/jinzhu/copier v0.3.5
 	github.com/labstack/echo/v4 v4.10.2
-	github.com/labstack/gommon v0.4.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/pkg/errors v0.9.1
 	github.com/sevenNt/echo-pprof v0.1.1-0.20230131020615-4dd36891e14b
@@ -23,13 +22,14 @@ require (
 	gopkg.in/yaml.v1 v1.0.0-20140924161607-9f9df34309c0
 )
 
+require github.com/labstack/gommon v0.4.0 // indirect
+
 require (
 	cloud.google.com/go v0.107.0 // indirect
 	cloud.google.com/go/compute v1.18.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.11.0 // indirect
 	cloud.google.com/go/longrunning v0.4.1 // indirect
-	github.com/Masterminds/semver v1.5.0
 	github.com/Microsoft/go-winio v0.6.0 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
