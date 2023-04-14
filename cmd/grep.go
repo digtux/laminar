@@ -62,6 +62,7 @@ func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings 
 	}
 }
 
+//nolint:dupl //Will be refactored to remove code duplication in next PR
 func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
 	var changeList []ChangeRequest
 	for _, candidateString := range potentialUpdatesAll {
@@ -135,6 +136,7 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 	return changeList
 }
 
+//nolint:dupl //Will be refactored to remove code duplication in next PR
 func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
 	var changeList []ChangeRequest
 	// TODO.. whole glob case section to its own function/package

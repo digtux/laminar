@@ -13,7 +13,7 @@ import (
 	"github.com/tidwall/buntdb"
 )
 
-func GcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string) {
+func GcrWorker(_ *buntdb.DB, registry cfg.DockerRegistry, _ []string) {
 	logger.Fatalw("Sorry, GCR is not supported yet..")
 	// TODO: GCR support
 	root := registry.Reg

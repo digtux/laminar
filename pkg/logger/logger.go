@@ -87,20 +87,20 @@ func Warnf(template string, values ...interface{}) {
 	zapLog.Warnf(template, values...)
 }
 
-func Warn(values ...interface{}) {
-	zapLog.Warn(values)
+func Warn(args ...interface{}) {
+	zapLog.Warn(args...)
 }
 
 func Debug(args ...interface{}) {
-	zapLog.Debug(args)
+	zapLog.Debug(args...)
 }
 
 func Error(args ...interface{}) {
-	zapLog.Error(args)
+	zapLog.Error(args...)
 }
 
 func Fatal(args ...interface{}) {
-	zapLog.Fatal(args)
+	zapLog.Fatal(args...)
 }
 
 func Panic(args ...interface{}) {

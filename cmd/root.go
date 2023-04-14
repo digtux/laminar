@@ -37,9 +37,6 @@ func init() {
 	flagSet.BoolVarP(&oneShot, "one-shot", "o", false, "only run laminar once (not as a persistent service)")
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if err := logger.InitLogger(debug); err != nil {
-			return err
-		}
-		return nil
+		return logger.InitLogger(debug)
 	}
 }
