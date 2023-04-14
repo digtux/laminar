@@ -3,21 +3,22 @@ package cfg
 import (
 	"errors"
 	"fmt"
-	"github.com/creasty/defaults"
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v1"
 	"os"
 	"reflect"
+
+	"github.com/creasty/defaults"
+	"github.com/digtux/laminar/pkg/logger"
+	"gopkg.in/yaml.v1"
 )
 
 // LoadFile will return a Config from a file (string)
-func LoadFile(fileName string, log *zap.SugaredLogger) (bytes []byte, err error) {
-	log.Debugw("reading file",
+func LoadFile(fileName string) (bytes []byte, err error) {
+	logger.Debugw("reading file",
 		"fileName", fileName)
 	rawYaml, err := os.ReadFile(fileName)
 	if err != nil {
-		log.Warnw("couldn't read file",
-			"laminar.fileName", fileName,
+		logger.Warnw("couldn't read file",
+			"fileName", fileName,
 		)
 		return nil, err
 	}
@@ -53,26 +54,26 @@ func ParseConfig(data []byte) (Config, error) {
 
 // GetUpdatesFromGit will check for a .laminar.yaml in the top level of a git repo
 // and attempt to return []Updates from there
-func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (updates RemoteUpdates, err error) {
+func GetUpdatesFromGit(path string) (updates RemoteUpdates, err error) {
 	// construct what we would expect the .laminar.yaml file to be in the git repo
 	file := fmt.Sprintf(path + "/" + ".laminar.yaml")
 
 	// try to read the file
-	rawFile, err := LoadFile(file, log)
+	rawFile, err := LoadFile(file)
 
 	if err != nil {
-		log.Errorw("Error loading file",
-			"laminar.file", path,
-			"laminar.error", err,
+		logger.Errorw("Error loading file",
+			"file", path,
+			"error", err,
 		)
 	}
 
 	// try to extract what we expect from the file
-	updates, err = ParseUpdates(rawFile, log)
+	updates, err = ParseUpdates(rawFile)
 	if err != nil {
-		log.Warnw("Reading updates from remote Repo failed",
-			"laminar.file", path,
-			"laminar.error", err,
+		logger.Warnw("Reading updates from remote Repo failed",
+			"file", path,
+			"error", err,
 		)
 		return RemoteUpdates{}, err
 	}
@@ -80,13 +81,13 @@ func GetUpdatesFromGit(path string, log *zap.SugaredLogger) (updates RemoteUpdat
 }
 
 // ParseUpdates will read the .laminar.yaml from a repo and return its RemoteUpdates
-func ParseUpdates(data []byte, log *zap.SugaredLogger) (RemoteUpdates, error) {
+func ParseUpdates(data []byte) (RemoteUpdates, error) {
 	var yamlUpdates RemoteUpdates
 
 	err := yaml.Unmarshal(data, &yamlUpdates)
 	if err != nil {
-		log.Warnw("yaml.Unmarshal error",
-			"laminar.error", err,
+		logger.Warnw("yaml.Unmarshal error",
+			"error", err,
 		)
 		return RemoteUpdates{}, err
 	}

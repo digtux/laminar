@@ -3,13 +3,14 @@ package web
 import (
 	"bytes"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/logger"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	echopprof "github.com/sevenNt/echo-pprof"
-	"go.uber.org/zap"
-	"net/http"
-	"time"
 )
 
 type HookData struct {
@@ -59,7 +60,6 @@ func stringContains(comment, value string) bool {
 }
 
 type Client struct {
-	logger        *zap.SugaredLogger
 	PauseChan     chan time.Time
 	BuildChan     chan DockerBuildJSON
 	githubToken   string
@@ -67,9 +67,8 @@ type Client struct {
 	config        cfg.Config
 }
 
-func New(logger *zap.SugaredLogger, cfg cfg.Config) *Client {
+func New(cfg cfg.Config) *Client {
 	return &Client{
-		logger:        logger,
 		PauseChan:     make(chan time.Time),
 		BuildChan:     make(chan DockerBuildJSON),
 		githubToken:   cfg.Global.GitHubToken,
@@ -88,10 +87,10 @@ func (client *Client) StartWeb() {
 		LogURI:    true,
 		LogStatus: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			client.logger.Infow("laminar.http",
-				"laminar.http.URI", v.URI,
-				"laminar.http.status", v.Status,
-				"laminar.http.RemoteAddr", c.Request().RemoteAddr,
+			logger.Infow("http",
+				"http.URI", v.URI,
+				"http.status", v.Status,
+				"http.RemoteAddr", c.Request().RemoteAddr,
 			)
 			return nil
 		},
@@ -109,11 +108,11 @@ func (client *Client) StartWeb() {
 		"/webhooks/build/docker",
 		client.handleDockerBuildWebhook,
 	)
-	client.logger.Infow("laminar web listener started",
-		"laminar.address", client.listenAddress)
+	logger.Infow("laminar web listener started",
+		"address", client.listenAddress)
 
 	if err := e.Start(client.listenAddress); err != http.ErrServerClosed {
-		client.logger.Fatal(err)
+		logger.Fatal(err)
 	}
 }
 
@@ -122,23 +121,23 @@ func (client *Client) handleGithubWebhook(ctx echo.Context) (err error) {
 	if isComment {
 		u := new(GitHubWebHookJSON)
 		if err := ctx.Bind(u); err != nil {
-			client.logger.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
+			logger.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
 		}
-		client.logger.Debugw("webhook",
+		logger.Debugw("webhook",
 			"status", "body_checked",
 			"reason", "is a comment event",
 			"data", u,
 		)
 		if stringContains(u.Comment.Body, "[laminar pause]") {
 			// someone told laminar to be a good boy... update "lastPause"
-			client.logger.Infow("webhook",
+			logger.Infow("webhook",
 				"status", "laminar instructed to pause",
 			)
 			client.PauseChan <- time.Now()
 			return ctx.String(http.StatusOK, "laminar paused")
 		}
 	} else {
-		client.logger.Infow("webhook",
+		logger.Infow("webhook",
 			"status", "ignored",
 			"reason", "not comment",
 		)
@@ -147,12 +146,12 @@ func (client *Client) handleGithubWebhook(ctx echo.Context) (err error) {
 }
 
 func (client *Client) handleDockerBuildWebhook(ctx echo.Context) (err error) {
-	client.logger.Infow("webhook",
+	logger.Infow("webhook",
 		"status", "laminar told there is a new build",
 	)
 	u := new(DockerBuildJSON)
 	if err = ctx.Bind(u); err != nil {
-		client.logger.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
+		logger.Warn("couldn't bind JSON.. are you sure github payload looks correct?")
 	} else {
 		client.BuildChan <- *u
 		return ctx.String(http.StatusOK, "build webhook received")

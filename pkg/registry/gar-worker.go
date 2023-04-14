@@ -1,14 +1,16 @@
 package registry
 
 import (
-	artifactregistry "cloud.google.com/go/artifactregistry/apiv1"
-	"cloud.google.com/go/artifactregistry/apiv1/artifactregistrypb"
 	"context"
 	"fmt"
+
+	artifactregistry "cloud.google.com/go/artifactregistry/apiv1"
+	"cloud.google.com/go/artifactregistry/apiv1/artifactregistrypb"
 	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/logger"
 	"github.com/tidwall/buntdb"
-	"go.uber.org/zap"
 	"google.golang.org/api/iterator"
+
 	"strings"
 	"time"
 )
@@ -16,72 +18,72 @@ import (
 // getRegistries will attempt to find google artifact registries from an example docker image string
 // For example:
 // europe-docker.pkg.dev/your-project-id/your-registry-name
-func getRegistries(ctx context.Context, log *zap.SugaredLogger, client artifactregistry.Client, registry cfg.DockerRegistry) ([]string, error) {
+func getRegistries(ctx context.Context, client artifactregistry.Client, registry cfg.DockerRegistry) ([]string, error) {
 	searchString := registry.Reg
 	domain := strings.Split(searchString, "/")[0]                 // would extract europe-docker.pkg.dev
 	location := strings.ReplaceAll(domain, "-docker.pkg.dev", "") // would extract "europe"
 	projectID := strings.Split(searchString, "/")[1]              // would extract "your-project-id"
-	repoList, err := listGoogleArtifactRepositories(ctx, log, client, projectID, location)
+	repoList, err := listGoogleArtifactRepositories(ctx, client, projectID, location)
 	if err != nil {
-		log.Errorw("couldn't list repositories",
+		logger.Errorw("couldn't list repositories",
 			"error", err,
 			"searchString", searchString,
 		)
 	}
 	if len(repoList) < 1 {
-		log.Warnw("scanning for Google Artifact Repositories didn't match anything",
+		logger.Warnw("scanning for Google Artifact Repositories didn't match anything",
 			"registry", registry.Reg,
 			"hint", "Expected repo name such as: 'europe-docker.pkg.dev/your-project-id/your-registry-name'",
 		)
 		return repoList, err
 	}
-	log.Debugw("Found Google Artifact Repositories",
+	logger.Debugw("Found Google Artifact Repositories",
 		"repoList", repoList,
 	)
 	return repoList, err
 }
 
-func GarWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
-	log.Warnw("Google Artifact Registry is BETA")
+func GarWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string) {
+	logger.Warnw("Google Artifact Registry is BETA")
 	timeStart := time.Now()
 	totalTags := 0
 
 	ctx := context.Background()
-	client := newClient(ctx, log)
+	client := newClient(ctx)
 	// defer client.Close but also check for errors
 	defer func(client *artifactregistry.Client) {
 		err := client.Close()
 		if err != nil {
-			log.Fatalw("unexpected error closing google artifact registry client",
+			logger.Fatalw("unexpected error closing google artifact registry client",
 				"error", err)
 		}
 	}(client)
 
-	garRepos, err := getRegistries(ctx, log, *client, registry)
+	garRepos, err := getRegistries(ctx, *client, registry)
 	if err != nil {
-		log.Fatalw("couldn't get registries",
+		logger.Fatalw("couldn't get registries",
 			"err", err,
 		)
 	}
 
 	for _, repo := range garRepos {
-		total := garDescribeAllRepositoryImagesToCache(ctx, log, *client, repo, db)
+		total := garDescribeAllRepositoryImagesToCache(ctx, *client, repo, db)
 		totalTags += total
 	}
 
 	elapsed := time.Since(timeStart)
-	log.Infow("Google Artifact Registry scan complete",
-		"laminar.elapsed", elapsed,
-		"laminar.registry", registry.Reg,
-		"laminar.totalUniqueImages", len(imageList),
-		"laminar.totalTags", totalTags,
+	logger.Infow("Google Artifact Registry scan complete",
+		"elapsed", elapsed,
+		"registry", registry.Reg,
+		"totalUniqueImages", len(imageList),
+		"totalTags", totalTags,
 	)
 }
 
-func newClient(ctx context.Context, log *zap.SugaredLogger) *artifactregistry.Client {
+func newClient(ctx context.Context) *artifactregistry.Client {
 	client, err := artifactregistry.NewClient(ctx)
 	if err != nil {
-		log.Fatalw("Couldn't auth.. did you run: 'gcloud auth application-default login' ?",
+		logger.Fatalw("Couldn't auth.. did you run: 'gcloud auth application-default login' ?",
 			"error", err,
 		)
 	}
@@ -89,7 +91,7 @@ func newClient(ctx context.Context, log *zap.SugaredLogger) *artifactregistry.Cl
 }
 
 func listGoogleArtifactRepositories(
-	ctx context.Context, log *zap.SugaredLogger, client artifactregistry.Client,
+	ctx context.Context, client artifactregistry.Client,
 	projectID,
 	location string,
 ) (
@@ -115,7 +117,7 @@ func listGoogleArtifactRepositories(
 			return result, err
 		}
 		if resp.Format.String() == "DOCKER" {
-			log.Debugw("Google artifact registry (format: DOCKER) found",
+			logger.Debugw("Google artifact registry (format: DOCKER) found",
 				"name", resp.Name,
 				"format", resp.Format,
 				"description", resp.Description,
@@ -128,7 +130,7 @@ func listGoogleArtifactRepositories(
 
 // TODO: figure out how to scan an individual dockerImage
 func garDescribeAllRepositoryImagesToCache(
-	ctx context.Context, log *zap.SugaredLogger, client artifactregistry.Client,
+	ctx context.Context, client artifactregistry.Client,
 	repository string,
 	db *buntdb.DB,
 ) (totalTags int) { // parent := repository,
@@ -145,23 +147,23 @@ func garDescribeAllRepositoryImagesToCache(
 			break
 		}
 		if err != nil {
-			log.Panic(err)
+			logger.Panic(err)
 		}
 		// TODO: we assume there are tags on an image.
 		// this might be complicated for some folks might use raw sha256
 		for _, tag := range resp.Tags {
-			tagInfo := convertGarResponseToTagInfo(log, resp, tag)
-			TagInfoToCache(tagInfo, db, log)
+			tagInfo := convertGarResponseToTagInfo(resp, tag)
+			TagInfoToCache(tagInfo, db)
 			countUniqueTags++
 		}
 	}
-	log.Infow("Google Artifact Registry scanned",
+	logger.Infow("Google Artifact Registry scanned",
 		"countUniqueTags", countUniqueTags,
 	)
 	return countUniqueTags
 }
 
-func convertGarResponseToTagInfo(log *zap.SugaredLogger, resp *artifactregistrypb.DockerImage, tag string) TagInfo {
+func convertGarResponseToTagInfo(resp *artifactregistrypb.DockerImage, tag string) TagInfo {
 	// formats DockerImage data
 	//
 	// Uri example: "europe-docker.pkg.dev/acme-org/my-registry/image-name@sha256:8a1aa5d3eeee07bf5cd75cd1268e132a880ffc829dd02b059b6e68563219522b
@@ -171,7 +173,7 @@ func convertGarResponseToTagInfo(log *zap.SugaredLogger, resp *artifactregistryp
 	// splitHash: "8a1aa5d3eeee07bf5cd75cd1268e132a880ffc829dd02b059b6e68563219522b"
 	splitHash := strings.Split(resp.Uri, ":")
 	if len(splitHash) != 2 {
-		log.Fatalw("Expected just a single ':'",
+		logger.Fatalw("Expected just a single ':'",
 			"value", resp.Uri,
 			"splitHash", splitHash,
 			"count", len(splitHash),

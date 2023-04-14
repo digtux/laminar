@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/logger"
 	"github.com/tidwall/buntdb"
-	"go.uber.org/zap"
 )
 
 // type SortImageIds []*ecr.ImageIdentifier
@@ -35,7 +35,7 @@ func EcrGetAuth(registry cfg.DockerRegistry) (svc *ecr.ECR) {
 	return svc
 }
 
-func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, log *zap.SugaredLogger) {
+func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string) {
 	timeStart := time.Now()
 	totalTags := 0
 	auth := EcrGetAuth(registry)
@@ -44,7 +44,7 @@ func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, l
 	repoName := strings.Split(registry.Reg, "/")[1]
 
 	for _, img := range imageList {
-		log.Debugw("EcrWorker",
+		logger.Debugw("EcrWorker",
 			"action", "scanning for image tags",
 			"image", img,
 		)
@@ -53,16 +53,16 @@ func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string, l
 		imgName := strings.Split(img, "/")[2]
 
 		name := fmt.Sprintf("%s/%s", repoName, imgName)
-		newTagsCount := EcrDescribeImageToCache(auth, name, registry, db, log)
+		newTagsCount := EcrDescribeImageToCache(auth, name, registry, db)
 		totalTags += newTagsCount
 	}
 
 	elapsed := time.Since(timeStart)
-	log.Infow("Amazon ECR scan complete",
-		"laminar.elapsed", elapsed,
-		"laminar.registry", registry.Reg,
-		"laminar.totalImages", len(imageList),
-		"laminar.totalTags", totalTags,
+	logger.Infow("Amazon ECR scan complete",
+		"elapsed", elapsed,
+		"registry", registry.Reg,
+		"totalImages", len(imageList),
+		"totalTags", totalTags,
 	)
 }
 
@@ -71,7 +71,6 @@ func EcrDescribeImageToCache(
 	repositoryName string,
 	registry cfg.DockerRegistry,
 	db *buntdb.DB,
-	log *zap.SugaredLogger,
 ) (total int) {
 	total = 0
 	describeImageSettings := &ecr.DescribeImagesInput{
@@ -89,7 +88,7 @@ func EcrDescribeImageToCache(
 	})
 
 	if err != nil {
-		log.Fatalw("ECR DescribeImages failed",
+		logger.Fatalw("ECR DescribeImages failed",
 			"error", err,
 			"suggest", "maybe set $AWS_PROFILE?")
 	}
@@ -109,10 +108,10 @@ func EcrDescribeImageToCache(
 				Tag:     *tag,
 				Created: *hit.ImagePushedAt,
 			}
-			TagInfoToCache(*hitTagInfo, db, log)
+			TagInfoToCache(*hitTagInfo, db)
 		}
 	}
-	log.Debugw("indexing image complete",
+	logger.Debugw("indexing image complete",
 		"registryUrl", registry.Reg,
 		"registryName", registry.Name,
 		"images", repositoryName,

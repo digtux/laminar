@@ -5,12 +5,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/digtux/laminar/pkg/logger"
 	"github.com/jinzhu/copier"
-	"go.uber.org/zap"
 )
 
-func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
-	r, stringContents := ReadFile(change.File, log)
+func DoChange(change ChangeRequest) (result bool) {
+	r, stringContents := ReadFile(change.File)
 
 	var originalContents string
 
@@ -23,7 +23,7 @@ func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
 	oldString := fmt.Sprintf("%s:%s", change.Image, change.Old)
 	newString := fmt.Sprintf("%s:%s", change.Image, change.New)
 
-	log.Debugw("Doing change",
+	logger.Debugw("Doing change",
 		"old", oldString,
 		"new", newString,
 	)
@@ -42,6 +42,6 @@ func DoChange(change ChangeRequest, log *zap.SugaredLogger) (result bool) {
 		return true
 	}
 
-	fmt.Println("no changes detected")
+	logger.Infow("no changes detected")
 	return false
 }

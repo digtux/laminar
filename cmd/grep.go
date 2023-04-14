@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -10,9 +11,9 @@ import (
 
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
+	"github.com/digtux/laminar/pkg/logger"
 	"github.com/digtux/laminar/pkg/registry"
 	"github.com/gobwas/glob"
-	"go.uber.org/zap"
 )
 
 // ChangeRequest is an object recording what changed and when
@@ -30,7 +31,7 @@ func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings 
 	// split the "PatternString" (eg:  `glob:develop-*`) and determine the style
 	// TODO: do this check when loading config file
 	if len(strings.Split(updates.PatternString, ":")) != 2 {
-		d.logger.Fatalw("pattern string misconfigured.. ",
+		logger.Fatalw("pattern string misconfigured.. ",
 			"got", updates.PatternString,
 			"expected", "'glob:foo-*'   or  'semver:~1.1'   (EG)",
 		)
@@ -39,7 +40,7 @@ func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings 
 	// slice of potential image strings to operate on
 	var potentialUpdatesAll []string
 	for _, regString := range registryStrings {
-		potentialUpdatesAll = grepFile(filePath, regString, d.logger)
+		potentialUpdatesAll = grepFile(filePath, regString)
 	}
 
 	// run unique on that string, we'll replace all occurrences
@@ -55,12 +56,13 @@ func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings 
 	case "regex":
 		return d.caseRegex(filePath, potentialUpdatesAll, patternValue)
 	default:
-		d.logger.Fatalf("Support for this pattern type (%s) does not exist yet (sorry)", patternType)
+		logger.Fatalf("Support for this pattern type (%s) does not exist yet (sorry)", patternType)
 		var changeList []ChangeRequest
 		return changeList
 	}
 }
 
+//nolint:dupl //Will be refactored to remove code duplication in next PR
 func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
 	var changeList []ChangeRequest
 	for _, candidateString := range potentialUpdatesAll {
@@ -68,18 +70,18 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 		// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
 		candidateStringSplit := strings.Split(candidateString, ":")
 		if len(candidateStringSplit) < 2 {
-			d.logger.Warnw("Refusing to update image",
-				"laminar.image", candidateString,
-				"laminar.file", filePath,
-				"laminar.info", "expected the format: '<registry>:<tag>",
-				"laminar.len", len(strings.Split(candidateString, ":")),
+			logger.Warnw("Refusing to update image",
+				"image", candidateString,
+				"file", filePath,
+				"info", "expected the format: '<registry>:<tag>",
+				"len", len(strings.Split(candidateString, ":")),
 			)
 		}
 		candidateImage := candidateStringSplit[0]
 
 		// this trick will grab the last slice
 		candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
-		if MatchRegex(candidateTag, patternValue, d.logger) {
+		if MatchRegex(candidateTag, patternValue) {
 			index := "created"
 			tagListFromDB := d.registryClient.CachedImagesToTagInfoListSpecificImage(
 				candidateImage,
@@ -94,27 +96,26 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 				patternValue,
 				candidateImage,
 				filePath,
-				d.logger,
 			)
 			if shouldChange {
-				d.logger.Infow("newer tag detected",
-					"laminar.image", changeRequest.File,
-					"laminar.old", changeRequest.Old,
-					"laminar.new", changeRequest.New,
+				logger.Infow("newer tag detected",
+					"image", changeRequest.File,
+					"old", changeRequest.Old,
+					"new", changeRequest.New,
 				)
 
-				changeHappened := DoChange(changeRequest, d.logger)
+				changeHappened := DoChange(changeRequest)
 				if changeHappened {
-					d.logger.Debugw("changeList updated with changeRequest",
-						"laminar.changeRequest", changeRequest)
+					logger.Debugw("changeList updated with changeRequest",
+						"changeRequest", changeRequest)
 					changeList = append(changeList, changeRequest)
 				}
 			}
 		} else {
-			d.logger.Debugw("Failed to Match Regex",
-				"laminar.candidateImage", candidateImage,
-				"laminar.candidateTag", candidateTag,
-				"laminar.pattern", patternValue,
+			logger.Debugw("Failed to Match Regex",
+				"candidateImage", candidateImage,
+				"candidateTag", candidateTag,
+				"pattern", patternValue,
 			)
 		}
 	}
@@ -122,19 +123,20 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 	// All changes that occurred will be in this slice
 	// TODO later: record to DB/cache
 	if len(changeList) == 0 {
-		d.logger.Debugw("no changes done",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+		logger.Debugw("no changes done",
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	} else {
-		d.logger.Infow("changes to git have happened",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+		logger.Infow("changes to git have happened",
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	}
 	return changeList
 }
 
+//nolint:dupl //Will be refactored to remove code duplication in next PR
 func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
 	var changeList []ChangeRequest
 	// TODO.. whole glob case section to its own function/package
@@ -143,11 +145,11 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 		// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
 		candidateStringSplit := strings.Split(candidateString, ":")
 		if len(candidateStringSplit) < 2 {
-			d.logger.Warnw("Refusing to update image",
-				"laminar.image", candidateString,
-				"laminar.file", filePath,
-				"laminar.info", "expected the format: '<registry>:<tag>",
-				"laminar.len", len(strings.Split(candidateString, ":")),
+			logger.Warnw("Refusing to update image",
+				"image", candidateString,
+				"file", filePath,
+				"info", "expected the format: '<registry>:<tag>",
+				"len", len(strings.Split(candidateString, ":")),
 			)
 		}
 		candidateImage := candidateStringSplit[0]
@@ -170,27 +172,26 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 				patternValue,
 				candidateImage,
 				filePath,
-				d.logger,
 			)
 			if shouldChange {
-				d.logger.Infow("newer tag detected",
-					"laminar.image", changeRequest.File,
-					"laminar.old", changeRequest.Old,
-					"laminar.new", changeRequest.New,
+				logger.Infow("newer tag detected",
+					"image", changeRequest.File,
+					"old", changeRequest.Old,
+					"new", changeRequest.New,
 				)
 
-				changeHappened := DoChange(changeRequest, d.logger)
+				changeHappened := DoChange(changeRequest)
 				if changeHappened {
-					d.logger.Debugw("changeList updated with changeRequest",
-						"laminar.changeRequest", changeRequest)
+					logger.Debugw("changeList updated with changeRequest",
+						"changeRequest", changeRequest)
 					changeList = append(changeList, changeRequest)
 				}
 			}
 		} else {
-			d.logger.Debugw("Failed to Match Globs",
-				"laminar.candidateImage", candidateImage,
-				"laminar.candidateTag", candidateTag,
-				"laminar.pattern", patternValue,
+			logger.Debugw("Failed to Match Globs",
+				"candidateImage", candidateImage,
+				"candidateTag", candidateTag,
+				"pattern", patternValue,
 			)
 		}
 	}
@@ -198,14 +199,14 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 	// All changes that occurred will be in this slice
 	// TODO later: record to DB/cache
 	if len(changeList) == 0 {
-		d.logger.Debugw("no changes done",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+		logger.Debugw("no changes done",
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	} else {
-		d.logger.Infow("changes to git have happened",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+		logger.Infow("changes to git have happened",
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	}
 	return changeList
@@ -228,7 +229,6 @@ func EvaluateIfImageShouldChangeGlob(
 	patternValue string,
 	image string,
 	file string,
-	log *zap.SugaredLogger,
 ) (
 	intent bool,
 	cr ChangeRequest,
@@ -257,9 +257,9 @@ func EvaluateIfImageShouldChangeGlob(
 		}
 		return false, cr
 	}
-	log.Warnw("sorry, glob doesn't match",
-		"laminar.currentTag", currentTag,
-		"laminar.patternValue", patternValue,
+	logger.Warnw("sorry, glob doesn't match",
+		"currentTag", currentTag,
+		"patternValue", patternValue,
 	)
 	return false, cr
 }
@@ -271,16 +271,16 @@ func MatchGlob(input string, globString string) bool {
 }
 
 // MatchRegex accepts a regex pattern then an input string
-func MatchRegex(input string, regexPattern string, log *zap.SugaredLogger) bool {
+func MatchRegex(input string, regexPattern string) bool {
 	match, err := regexp.MatchString(regexPattern, input)
 	if err != nil {
-		log.Fatal("bad regex supplied or something? I have no idea sorry")
+		logger.Fatal("bad regex supplied or something? I have no idea sorry")
 	}
 
-	log.Debugw("comparing regex:",
-		"laminar.input", input,
-		"laminar.pattern", regexPattern,
-		"laminar.result", match,
+	logger.Debugw("comparing regex:",
+		"input", input,
+		"pattern", regexPattern,
+		"result", match,
 	)
 	return match
 }
@@ -302,7 +302,6 @@ func EvaluateIfImageShouldChangeRegex(
 	patternValue string,
 	image string,
 	file string,
-	log *zap.SugaredLogger,
 ) (
 	intent bool,
 	cr ChangeRequest,
@@ -310,15 +309,13 @@ func EvaluateIfImageShouldChangeRegex(
 	// first lets just be 100% that the currentTag matches the glob
 	if MatchRegex(
 		currentTag,
-		patternValue,
-		log) {
+		patternValue) {
 		// This list assumes descending by time, so the first glob match (if any) will be correct
 		for _, potentialTag := range cachedTagList {
 			// check tag matches. also "latest" is forbidden
 			if MatchRegex(
 				potentialTag.Tag,
-				patternValue,
-				log) && potentialTag.Tag != "latest" { // exclude identical tags from git+registry
+				patternValue) && potentialTag.Tag != "latest" { // exclude identical tags from git+registry
 				if potentialTag.Tag != currentTag {
 					cr = ChangeRequest{
 						Old:          currentTag,
@@ -337,26 +334,26 @@ func EvaluateIfImageShouldChangeRegex(
 
 		return false, cr
 	}
-	log.Warnw("sorry, regex doesn't match",
-		"laminar.currentTag", currentTag,
-		"laminar.patternValue", patternValue,
+	logger.Warnw("sorry, regex doesn't match",
+		"currentTag", currentTag,
+		"patternValue", patternValue,
 	)
 	return false, cr
 }
 
 // ReadFile will return the raw []byte content of a file
-func ReadFile(filePath string, log *zap.SugaredLogger) ([]byte, string) {
+func ReadFile(filePath string) ([]byte, string) {
 	r, err := os.ReadFile(filePath)
 	stringContents := string(r)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 	return r, stringContents
 }
 
 // grepFile returns a slice of hits that match a string inside a file
 // The assumption is that this is only used against YAML files
-func grepFile(file string, searchString string, log *zap.SugaredLogger) (matches []string) {
+func grepFile(file string, searchString string) (matches []string) {
 	pat := []byte(searchString)
 	f, err := os.Open(file)
 	if err != nil {
@@ -380,25 +377,25 @@ func grepFile(file string, searchString string, log *zap.SugaredLogger) (matches
 				if bytes.Contains([]byte(field), pat) {
 					// val := strings.Fields(scanner.Text())[1]
 					matches = append(matches, field)
-					log.Debug(field)
+					logger.Debug(field)
 				}
 			}
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		log.Error(err)
+		logger.Error(err)
 	}
 	if len(matches) > 0 {
-		log.Debugw("found some images that may need updating",
-			"laminar.count", len(matches),
-			"laminar.file", file,
-			"laminar.searchString", searchString,
+		logger.Debugw("found some images that may need updating",
+			"count", len(matches),
+			"file", file,
+			"searchString", searchString,
 		)
 	} else {
-		log.Debugw("grepFile found no matches",
-			"laminar.searchString", searchString,
-			"laminar.file", file,
-			"laminar.matches", matches,
+		logger.Debugw("grepFile found no matches",
+			"searchString", searchString,
+			"file", file,
+			"matches", matches,
 		)
 	}
 	return matches

@@ -3,11 +3,12 @@ package registry
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/digtux/laminar/pkg/cfg"
-	"github.com/tidwall/buntdb"
-	"go.uber.org/zap"
 	"strings"
 	"time"
+
+	"github.com/digtux/laminar/pkg/cfg"
+	"github.com/digtux/laminar/pkg/logger"
+	"github.com/tidwall/buntdb"
 )
 
 // TagInfo is the official data stored in buntDB
@@ -19,41 +20,39 @@ type TagInfo struct {
 }
 
 type Client struct {
-	db     *buntdb.DB
-	logger *zap.SugaredLogger
+	db *buntdb.DB
 }
 
-func New(logger *zap.SugaredLogger, db *buntdb.DB) *Client {
+func New(db *buntdb.DB) *Client {
 	return &Client{
-		logger: logger,
-		db:     db,
+		db: db,
 	}
 }
 
 // Exec will check if we support that docker reg and then launch an appropriate worker
 func (c *Client) Exec(registry cfg.DockerRegistry, imageList []string) { // grok will add some defaults lest the config doesn't include em
 	registry = grokRegistrySettings(registry)
-	c.logger.Debugw("DockerRegistry worker launching",
+	logger.Debugw("DockerRegistry worker launching",
 		"Registry", registry,
 	)
 
 	// Check if the image looks like an ECR image
 	if strings.Contains(registry.Reg, "ecr") {
-		EcrWorker(c.db, registry, imageList, c.logger)
+		EcrWorker(c.db, registry, imageList)
 		return
 	}
 
 	if strings.Contains(registry.Reg, "gcr.io") {
-		GcrWorker(c.db, registry, imageList, c.logger)
+		GcrWorker(c.db, registry, imageList)
 		return
 	}
 
 	if strings.Contains(registry.Reg, "docker.pkg.dev") {
-		GarWorker(c.db, registry, imageList, c.logger)
+		GarWorker(c.db, registry, imageList)
 		return
 	}
 
-	c.logger.Fatal("unable to figure out which kind of registry you have")
+	logger.Fatal("unable to figure out which kind of registry you have")
 }
 
 // assuming these are unset fields, assume these defaults
@@ -71,7 +70,7 @@ func (c *Client) CachedImagesToTagInfoListSpecificImage(
 	err := c.db.View(func(tx *buntdb.Tx) error {
 		err := tx.Descend(index, func(key, val string) bool {
 			// decode the data from the db
-			x := JSONStringToTagInfo(val, c.logger)
+			x := JSONStringToTagInfo(val)
 
 			// if this image matches the imageString append it to the result
 			if x.Image == imageString {
@@ -80,14 +79,14 @@ func (c *Client) CachedImagesToTagInfoListSpecificImage(
 			return true
 		})
 		if err != nil {
-			c.logger.Debugw("buntdb tx.Descend issue",
+			logger.Debugw("buntdb tx.Descend issue",
 				"err", err)
 			return err
 		}
 		return nil
 	})
 	if err != nil {
-		c.logger.Debugw("buntdb tx.View() issue",
+		logger.Debugw("buntdb tx.View() issue",
 			"error", err)
 		return nil
 	}
@@ -98,18 +97,18 @@ func (c *Client) CachedImagesToTagInfoListSpecificImage(
 	return result
 }
 
-func JSONStringToTagInfo(s string, log *zap.SugaredLogger) TagInfo {
+func JSONStringToTagInfo(s string) TagInfo {
 	var data TagInfo
 	err := json.Unmarshal([]byte(s), &data)
 	if err != nil {
-		log.Error("unmarshal error?")
-		log.Fatal(err)
+		logger.Error("unmarshal error?")
+		logger.Fatal(err)
 		return data
 	}
 	return data
 }
 
-func TagInfoToCache(info TagInfo, db *buntdb.DB, log *zap.SugaredLogger) {
+func TagInfoToCache(info TagInfo, db *buntdb.DB) {
 	storeKey := fmt.Sprintf("TagInfo:%s:%s:%s", info.Image, info.Hash, info.Tag)
 
 	// TTL on tag cache, https://github.com/tidwall/buntdb#data-expiration
@@ -117,7 +116,7 @@ func TagInfoToCache(info TagInfo, db *buntdb.DB, log *zap.SugaredLogger) {
 
 	byteArray, err := json.Marshal(info)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 
 	insertedValue := string(byteArray)
@@ -126,6 +125,6 @@ func TagInfoToCache(info TagInfo, db *buntdb.DB, log *zap.SugaredLogger) {
 		return err
 	})
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err)
 	}
 }

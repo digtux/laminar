@@ -6,3 +6,4 @@ config-*.yaml
 id_rsa*
 id_ecdsa*
 .idea
+.vscode
