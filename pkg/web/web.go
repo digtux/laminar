@@ -87,10 +87,10 @@ func (client *Client) StartWeb() {
 		LogURI:    true,
 		LogStatus: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
-			logger.Infow("laminar.http",
-				"laminar.http.URI", v.URI,
-				"laminar.http.status", v.Status,
-				"laminar.http.RemoteAddr", c.Request().RemoteAddr,
+			logger.Infow("http",
+				"http.URI", v.URI,
+				"http.status", v.Status,
+				"http.RemoteAddr", c.Request().RemoteAddr,
 			)
 			return nil
 		},
@@ -109,7 +109,7 @@ func (client *Client) StartWeb() {
 		client.handleDockerBuildWebhook,
 	)
 	logger.Infow("laminar web listener started",
-		"laminar.address", client.listenAddress)
+		"address", client.listenAddress)
 
 	if err := e.Start(client.listenAddress); err != http.ErrServerClosed {
 		logger.Fatal(err)

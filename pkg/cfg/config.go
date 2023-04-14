@@ -18,7 +18,7 @@ func LoadFile(fileName string) (bytes []byte, err error) {
 	rawYaml, err := os.ReadFile(fileName)
 	if err != nil {
 		logger.Warnw("couldn't read file",
-			"laminar.fileName", fileName,
+			"fileName", fileName,
 		)
 		return nil, err
 	}
@@ -63,8 +63,8 @@ func GetUpdatesFromGit(path string) (updates RemoteUpdates, err error) {
 
 	if err != nil {
 		logger.Errorw("Error loading file",
-			"laminar.file", path,
-			"laminar.error", err,
+			"file", path,
+			"error", err,
 		)
 	}
 
@@ -72,8 +72,8 @@ func GetUpdatesFromGit(path string) (updates RemoteUpdates, err error) {
 	updates, err = ParseUpdates(rawFile)
 	if err != nil {
 		logger.Warnw("Reading updates from remote Repo failed",
-			"laminar.file", path,
-			"laminar.error", err,
+			"file", path,
+			"error", err,
 		)
 		return RemoteUpdates{}, err
 	}
@@ -87,7 +87,7 @@ func ParseUpdates(data []byte) (RemoteUpdates, error) {
 	err := yaml.Unmarshal(data, &yamlUpdates)
 	if err != nil {
 		logger.Warnw("yaml.Unmarshal error",
-			"laminar.error", err,
+			"error", err,
 		)
 		return RemoteUpdates{}, err
 	}

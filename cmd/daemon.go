@@ -92,8 +92,8 @@ func loadConfig() (appConfig cfg.Config, err error) {
 	}
 	if err != nil {
 		logger.Errorw("error loading config",
-			"laminar.file", configFile,
-			"laminar.error", err,
+			"file", configFile,
+			"error", err,
 		)
 	}
 	return
@@ -205,21 +205,21 @@ func (d *Daemon) updateFiles(gitRepo cfg.GitRepo) {
 
 			// finally this will return all files found
 			filesFound := d.opsClient.FindFiles(realPath)
-			logger.Debugw("found files in git repo", "laminar.filesFound", filesFound)
+			logger.Debugw("found files in git repo", "filesFound", filesFound)
 			fileList = append(fileList, filesFound...)
 		}
 
 		for _, filePath := range fileList {
 			logger.Debugw("applying update policy",
-				"laminar.file", filePath,
-				"laminar.pattern", updatePolicy.PatternString,
-				"laminar.blacklist", updatePolicy.BlackList,
+				"file", filePath,
+				"pattern", updatePolicy.PatternString,
+				"blacklist", updatePolicy.BlackList,
 			)
 			newChanges := d.doUpdate(filePath, updatePolicy, registryStrings)
 			if len(newChanges) > 0 {
 				logger.Infow("updates desired",
-					"laminar.file", filePath,
-					"laminar.pattern", updatePolicy.PatternString,
+					"file", filePath,
+					"pattern", updatePolicy.PatternString,
 				)
 				triggerCommitAndPush = true
 				changes = append(changes, newChanges...)
@@ -241,8 +241,8 @@ func (d *Daemon) commitAndPush(changes []ChangeRequest, cfgGit cfg.GitRepo) {
 		msg = nicerMessage(changes[0])
 	}
 	logger.Infow("doing commit",
-		"laminar.gitRepo", cfgGit.URL,
-		"laminar.msg", msg,
+		"gitRepo", cfgGit.URL,
+		"msg", msg,
 	)
 	d.gitOpsClient.CommitAndPush(cfgGit, msg)
 }
@@ -264,14 +264,14 @@ func (d *Daemon) scanDockerRegistry(dockerReg cfg.DockerRegistry) {
 	if len(foundDockerImages) > 0 {
 		d.registryClient.Exec(dockerReg, foundDockerImages)
 		logger.Infow("found images (in gitoperations) matching a configured docker registry",
-			"laminar.regName", dockerReg.Name,
-			"laminar.reg", dockerReg.Reg,
-			"laminar.imageCount", len(foundDockerImages),
+			"regName", dockerReg.Name,
+			"reg", dockerReg.Reg,
+			"imageCount", len(foundDockerImages),
 		)
 	} else {
 		logger.Infow("no images tags found.. ensure the full <image>:<tag> strings present",
-			"laminar.regName", dockerReg.Name,
-			"laminar.reg", dockerReg.Reg,
+			"regName", dockerReg.Name,
+			"reg", dockerReg.Reg,
 		)
 	}
 }
@@ -292,15 +292,15 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 	repoPath := gitoperations.GetRepoPath(*state.repoCfg)
 	if state.repoCfg.RemoteConfig {
 		logger.Debugw("'remote config' == True.. will attempt to update config dynamically",
-			"laminar.repo", state.repoCfg.Name,
+			"repo", state.repoCfg.Name,
 		)
 
 		remoteUpdates, err := cfg.GetUpdatesFromGit(repoPath)
 		if err != nil {
 			logger.Warnw("Laminar was told to look at .laminar.yaml but failed",
-				"laminar.repo", state.repoCfg.Name,
-				"laminar.path", repoPath,
-				"laminar.error", err,
+				"repo", state.repoCfg.Name,
+				"path", repoPath,
+				"error", err,
 			)
 		}
 
@@ -309,22 +309,22 @@ func (d *Daemon) updateGitRepoState(state GitState) {
 		// now assemble that list for this run
 		for _, update := range remoteUpdates.Updates {
 			logger.Infow("using 'remote config' from gitoperations repo .laminar.yaml",
-				"laminar.update", update,
+				"update", update,
 			)
 			state.repoCfg.Updates = append(state.repoCfg.Updates, update)
 		}
 	}
 	// equalise the state. damn this needs a nice rewrite sometime
 	logger.Infow("configured for",
-		"laminar.gitRepo", state.repoCfg.Name,
-		"laminar.updateRules", len(state.repoCfg.Updates),
+		"gitRepo", state.repoCfg.Name,
+		"updateRules", len(state.repoCfg.Updates),
 	)
 	d.UpdateFileList(*state.repoCfg)
 
 	// we are ready to dispatch this to start searching the contents of these files
 	logger.Debugw("matched files in gitoperations",
-		"laminar.GitRepo", state.repoCfg.Name,
-		"laminar.fileList", d.fileList,
+		"GitRepo", state.repoCfg.Name,
+		"fileList", d.fileList,
 	)
 }
 

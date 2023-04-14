@@ -21,7 +21,6 @@ func InitLogger(debug bool) error {
 		sugar := zapLogger.Sugar()
 		sugar.Debug("Debug enabled")
 		zapLog = sugar
-		return nil
 	} else {
 		// Override the default zap production Config a little
 		// NewProductionConfig is json
@@ -42,8 +41,10 @@ func InitLogger(debug bool) error {
 		}
 		sugar := zapLogger.Sugar()
 		zapLog = sugar
-		return nil
 	}
+
+	zapLog = zapLog.With(zap.Namespace("laminar"))
+	return nil
 }
 
 func Infow(message string, values ...interface{}) {

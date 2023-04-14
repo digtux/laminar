@@ -21,8 +21,8 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 	r, err := git.PlainOpen(path)
 	if err != nil {
 		logger.Errorw("error opening repo",
-			"laminar.registry", registry,
-			"laminar.error", err,
+			"registry", registry,
+			"error", err,
 		)
 	}
 

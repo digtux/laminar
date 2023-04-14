@@ -70,10 +70,10 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 		candidateStringSplit := strings.Split(candidateString, ":")
 		if len(candidateStringSplit) < 2 {
 			logger.Warnw("Refusing to update image",
-				"laminar.image", candidateString,
-				"laminar.file", filePath,
-				"laminar.info", "expected the format: '<registry>:<tag>",
-				"laminar.len", len(strings.Split(candidateString, ":")),
+				"image", candidateString,
+				"file", filePath,
+				"info", "expected the format: '<registry>:<tag>",
+				"len", len(strings.Split(candidateString, ":")),
 			)
 		}
 		candidateImage := candidateStringSplit[0]
@@ -98,23 +98,23 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 			)
 			if shouldChange {
 				logger.Infow("newer tag detected",
-					"laminar.image", changeRequest.File,
-					"laminar.old", changeRequest.Old,
-					"laminar.new", changeRequest.New,
+					"image", changeRequest.File,
+					"old", changeRequest.Old,
+					"new", changeRequest.New,
 				)
 
 				changeHappened := DoChange(changeRequest)
 				if changeHappened {
 					logger.Debugw("changeList updated with changeRequest",
-						"laminar.changeRequest", changeRequest)
+						"changeRequest", changeRequest)
 					changeList = append(changeList, changeRequest)
 				}
 			}
 		} else {
 			logger.Debugw("Failed to Match Regex",
-				"laminar.candidateImage", candidateImage,
-				"laminar.candidateTag", candidateTag,
-				"laminar.pattern", patternValue,
+				"candidateImage", candidateImage,
+				"candidateTag", candidateTag,
+				"pattern", patternValue,
 			)
 		}
 	}
@@ -123,13 +123,13 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 	// TODO later: record to DB/cache
 	if len(changeList) == 0 {
 		logger.Debugw("no changes done",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	} else {
 		logger.Infow("changes to git have happened",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	}
 	return changeList
@@ -144,10 +144,10 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 		candidateStringSplit := strings.Split(candidateString, ":")
 		if len(candidateStringSplit) < 2 {
 			logger.Warnw("Refusing to update image",
-				"laminar.image", candidateString,
-				"laminar.file", filePath,
-				"laminar.info", "expected the format: '<registry>:<tag>",
-				"laminar.len", len(strings.Split(candidateString, ":")),
+				"image", candidateString,
+				"file", filePath,
+				"info", "expected the format: '<registry>:<tag>",
+				"len", len(strings.Split(candidateString, ":")),
 			)
 		}
 		candidateImage := candidateStringSplit[0]
@@ -173,23 +173,23 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 			)
 			if shouldChange {
 				logger.Infow("newer tag detected",
-					"laminar.image", changeRequest.File,
-					"laminar.old", changeRequest.Old,
-					"laminar.new", changeRequest.New,
+					"image", changeRequest.File,
+					"old", changeRequest.Old,
+					"new", changeRequest.New,
 				)
 
 				changeHappened := DoChange(changeRequest)
 				if changeHappened {
 					logger.Debugw("changeList updated with changeRequest",
-						"laminar.changeRequest", changeRequest)
+						"changeRequest", changeRequest)
 					changeList = append(changeList, changeRequest)
 				}
 			}
 		} else {
 			logger.Debugw("Failed to Match Globs",
-				"laminar.candidateImage", candidateImage,
-				"laminar.candidateTag", candidateTag,
-				"laminar.pattern", patternValue,
+				"candidateImage", candidateImage,
+				"candidateTag", candidateTag,
+				"pattern", patternValue,
 			)
 		}
 	}
@@ -198,13 +198,13 @@ func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, pattern
 	// TODO later: record to DB/cache
 	if len(changeList) == 0 {
 		logger.Debugw("no changes done",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	} else {
 		logger.Infow("changes to git have happened",
-			"laminar.changeList", changeList,
-			"laminar.filePath", filePath,
+			"changeList", changeList,
+			"filePath", filePath,
 		)
 	}
 	return changeList
@@ -256,8 +256,8 @@ func EvaluateIfImageShouldChangeGlob(
 		return false, cr
 	}
 	logger.Warnw("sorry, glob doesn't match",
-		"laminar.currentTag", currentTag,
-		"laminar.patternValue", patternValue,
+		"currentTag", currentTag,
+		"patternValue", patternValue,
 	)
 	return false, cr
 }
@@ -276,9 +276,9 @@ func MatchRegex(input string, regexPattern string) bool {
 	}
 
 	logger.Debugw("comparing regex:",
-		"laminar.input", input,
-		"laminar.pattern", regexPattern,
-		"laminar.result", match,
+		"input", input,
+		"pattern", regexPattern,
+		"result", match,
 	)
 	return match
 }
@@ -333,8 +333,8 @@ func EvaluateIfImageShouldChangeRegex(
 		return false, cr
 	}
 	logger.Warnw("sorry, regex doesn't match",
-		"laminar.currentTag", currentTag,
-		"laminar.patternValue", patternValue,
+		"currentTag", currentTag,
+		"patternValue", patternValue,
 	)
 	return false, cr
 }
@@ -385,15 +385,15 @@ func grepFile(file string, searchString string) (matches []string) {
 	}
 	if len(matches) > 0 {
 		logger.Debugw("found some images that may need updating",
-			"laminar.count", len(matches),
-			"laminar.file", file,
-			"laminar.searchString", searchString,
+			"count", len(matches),
+			"file", file,
+			"searchString", searchString,
 		)
 	} else {
 		logger.Debugw("grepFile found no matches",
-			"laminar.searchString", searchString,
-			"laminar.file", file,
-			"laminar.matches", matches,
+			"searchString", searchString,
+			"file", file,
+			"matches", matches,
 		)
 	}
 	return matches

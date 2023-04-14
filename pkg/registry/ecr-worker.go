@@ -59,10 +59,10 @@ func EcrWorker(db *buntdb.DB, registry cfg.DockerRegistry, imageList []string) {
 
 	elapsed := time.Since(timeStart)
 	logger.Infow("Amazon ECR scan complete",
-		"laminar.elapsed", elapsed,
-		"laminar.registry", registry.Reg,
-		"laminar.totalImages", len(imageList),
-		"laminar.totalTags", totalTags,
+		"elapsed", elapsed,
+		"registry", registry.Reg,
+		"totalImages", len(imageList),
+		"totalTags", totalTags,
 	)
 }
 
