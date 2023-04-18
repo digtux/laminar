@@ -3,12 +3,14 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"log"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver"
 	"github.com/digtux/laminar/pkg/cfg"
 	"github.com/digtux/laminar/pkg/common"
 	"github.com/digtux/laminar/pkg/logger"
@@ -52,9 +54,11 @@ func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings 
 
 	switch patternType {
 	case "glob":
-		return d.caseGlob(filePath, potentialUpdatesAll, patternValue)
+		return d.compileChanges(filePath, potentialUpdatesAll, patternType, patternValue, matchGlob)
 	case "regex":
-		return d.caseRegex(filePath, potentialUpdatesAll, patternValue)
+		return d.compileChanges(filePath, potentialUpdatesAll, patternType, patternValue, matchRegex)
+	case "semver":
+		return d.compileChanges(filePath, potentialUpdatesAll, patternType, patternValue, matchSemver)
 	default:
 		logger.Fatalf("Support for this pattern type (%s) does not exist yet (sorry)", patternType)
 		var changeList []ChangeRequest
@@ -62,8 +66,7 @@ func (d *Daemon) doUpdate(filePath string, updates cfg.Updates, registryStrings 
 	}
 }
 
-//nolint:dupl //Will be refactored to remove code duplication in next PR
-func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
+func (d *Daemon) compileChanges(filePath string, potentialUpdatesAll []string, patternType string, patternValue string, matcher func(string, string) bool) []ChangeRequest {
 	var changeList []ChangeRequest
 	for _, candidateString := range potentialUpdatesAll {
 		// TODO brute force splitting by ":", this will be a problem with registries with additional :123 ports
@@ -81,7 +84,7 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 
 		// this trick will grab the last slice
 		candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
-		if MatchRegex(candidateTag, patternValue) {
+		if matcher(candidateTag, patternValue) {
 			index := "created"
 			tagListFromDB := d.registryClient.CachedImagesToTagInfoListSpecificImage(
 				candidateImage,
@@ -90,12 +93,14 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 
 			// shouldChange is a bool to assist with logic later
 			// changeRequest will go into a []changeList, so we can record it to db one day
-			shouldChange, changeRequest := EvaluateIfImageShouldChangeRegex(
+			shouldChange, changeRequest := evaluateIfImageShouldChange(
 				candidateTag,
 				tagListFromDB,
+				patternType,
 				patternValue,
 				candidateImage,
 				filePath,
+				matcher,
 			)
 			if shouldChange {
 				logger.Infow("newer tag detected",
@@ -112,9 +117,10 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 				}
 			}
 		} else {
-			logger.Debugw("Failed to Match Regex",
+			logger.Debugw("Failed to Match",
 				"candidateImage", candidateImage,
 				"candidateTag", candidateTag,
+				"patternType", patternType,
 				"pattern", patternValue,
 			)
 		}
@@ -136,116 +142,43 @@ func (d *Daemon) caseRegex(filePath string, potentialUpdatesAll []string, patter
 	return changeList
 }
 
-//nolint:dupl //Will be refactored to remove code duplication in next PR
-func (d *Daemon) caseGlob(filePath string, potentialUpdatesAll []string, patternValue string) []ChangeRequest {
-	var changeList []ChangeRequest
-	// TODO.. whole glob case section to its own function/package
-	for _, candidateString := range potentialUpdatesAll {
-		// TODO brute force splitting by ":", this will be a problem with registries with additional :123 ports
-		// EG.. then the split(":") + len() egg.. if the url is localhost:1234/image:tag
-		candidateStringSplit := strings.Split(candidateString, ":")
-		if len(candidateStringSplit) < 2 {
-			logger.Warnw("Refusing to update image",
-				"image", candidateString,
-				"file", filePath,
-				"info", "expected the format: '<registry>:<tag>",
-				"len", len(strings.Split(candidateString, ":")),
-			)
-		}
-		candidateImage := candidateStringSplit[0]
-
-		// this trick will grab the last slice
-		candidateTag := candidateStringSplit[len(candidateStringSplit)-1]
-		if MatchGlob(candidateTag, patternValue) {
-			// get a full list of tags for the image from our cache
-			index := "created"
-			tagListFromDB := d.registryClient.CachedImagesToTagInfoListSpecificImage(
-				candidateImage,
-				index,
-			)
-
-			// shouldChange is a bool to assist with logic later
-			// changeRequest will go into a []changeList, so we can record it to db one day
-			shouldChange, changeRequest := EvaluateIfImageShouldChangeGlob(
-				candidateTag,
-				tagListFromDB,
-				patternValue,
-				candidateImage,
-				filePath,
-			)
-			if shouldChange {
-				logger.Infow("newer tag detected",
-					"image", changeRequest.File,
-					"old", changeRequest.Old,
-					"new", changeRequest.New,
-				)
-
-				changeHappened := DoChange(changeRequest)
-				if changeHappened {
-					logger.Debugw("changeList updated with changeRequest",
-						"changeRequest", changeRequest)
-					changeList = append(changeList, changeRequest)
-				}
-			}
-		} else {
-			logger.Debugw("Failed to Match Globs",
-				"candidateImage", candidateImage,
-				"candidateTag", candidateTag,
-				"pattern", patternValue,
-			)
-		}
-	}
-
-	// All changes that occurred will be in this slice
-	// TODO later: record to DB/cache
-	if len(changeList) == 0 {
-		logger.Debugw("no changes done",
-			"changeList", changeList,
-			"filePath", filePath,
-		)
-	} else {
-		logger.Infow("changes to git have happened",
-			"changeList", changeList,
-			"filePath", filePath,
-		)
-	}
-	return changeList
-}
-
-// EvaluateIfImageShouldChangeGlob checks if a currentTag should be updated
+// evaluateIfImageShouldChange checks if a currentTag should be updated
 // required:
 // - currentTag (string)
 // - []TagInfo list of tags from cache (candidates to be promoted)
 // - glob-string (all tags must match)
 // returns (intent bool, struct ChangeRecord{})
-// ChangeRecord? we can record the ChangeRecord in the DB for potential "undo" button (One day)
+// ChangeRecord? we can record the ChangeRecord in the DB for potential "undo" button
 // this function will evaluate "created" timestamps to ensure it has the latest match glob tag
 // NOTE: if the currentTag is not indexed in the cache (eg the tag disappeared from docker registry)
 //
 //	it will assume that **every tag is more recent than the current one**
-func EvaluateIfImageShouldChangeGlob(
+func evaluateIfImageShouldChange(
 	currentTag string,
 	cachedTagList []registry.TagInfo,
+	patternType string,
 	patternValue string,
 	image string,
 	file string,
+	matcher func(string, string) bool,
 ) (
 	intent bool,
 	cr ChangeRequest,
 ) {
-	// first lets just be 100% that the currentTag matches the glob
-	if MatchGlob(currentTag, patternValue) {
+	// first lets just be 100% that the currentTag matches
+	if matcher(currentTag, patternValue) {
 		// This list assumes descending by time, so the first glob match (if any) will be correct
 		for _, potentialTag := range cachedTagList {
 			// check tag matches. also "latest" is forbidden
-			if MatchGlob(potentialTag.Tag, patternValue) && potentialTag.Tag != "latest" {
-				// exclude identical tags from git+registry
+			if matcher(
+				potentialTag.Tag,
+				patternValue) && potentialTag.Tag != "latest" { // exclude identical tags from git+registry
 				if potentialTag.Tag != currentTag {
 					cr = ChangeRequest{
 						Old:          currentTag,
 						New:          potentialTag.Tag,
 						Time:         time.Now(),
-						PatternType:  "glob",
+						PatternType:  patternType,
 						PatternValue: patternValue,
 						Image:        image,
 						File:         file,
@@ -255,23 +188,24 @@ func EvaluateIfImageShouldChangeGlob(
 				return false, cr
 			}
 		}
+
 		return false, cr
 	}
-	logger.Warnw("sorry, glob doesn't match",
+	logger.Warnw(fmt.Sprintf("sorry, %s doesn't match", patternType),
 		"currentTag", currentTag,
 		"patternValue", patternValue,
 	)
 	return false, cr
 }
 
-// MatchGlob accepts the input string and then the glob string, returns "if match" bool
-func MatchGlob(input string, globString string) bool {
+// matchGlob accepts the input string and then the glob string, returns "if match" bool
+func matchGlob(input string, globString string) bool {
 	g := glob.MustCompile(globString)
 	return g.Match(input)
 }
 
-// MatchRegex accepts a regex pattern then an input string
-func MatchRegex(input string, regexPattern string) bool {
+// matchRegex accepts a regex pattern then an input string
+func matchRegex(input string, regexPattern string) bool {
 	match, err := regexp.MatchString(regexPattern, input)
 	if err != nil {
 		logger.Fatal("bad regex supplied or something? I have no idea sorry")
@@ -285,64 +219,35 @@ func MatchRegex(input string, regexPattern string) bool {
 	return match
 }
 
-// EvaluateIfImageShouldChangeRegex checks if a currentTag should be updated
-// required:
-// - currentTag (string)
-// - []TagInfo list of tags from cache (candidates to be promoted)
-// - glob-string (all tags must match)
-// returns (intent bool, struct ChangeRecord{})
-// ChangeRecord? we can record the ChangeRecord in the DB for potential "undo" button
-// this function will evaluate "created" timestamps to ensure it has the latest match glob tag
-// NOTE: if the currentTag is not indexed in the cache (eg the tag disappeared from docker registry)
-//
-//	it will assume that **every tag is more recent than the current one**
-func EvaluateIfImageShouldChangeRegex(
-	currentTag string,
-	cachedTagList []registry.TagInfo,
-	patternValue string,
-	image string,
-	file string,
-) (
-	intent bool,
-	cr ChangeRequest,
-) {
-	// first lets just be 100% that the currentTag matches the glob
-	if MatchRegex(
-		currentTag,
-		patternValue) {
-		// This list assumes descending by time, so the first glob match (if any) will be correct
-		for _, potentialTag := range cachedTagList {
-			// check tag matches. also "latest" is forbidden
-			if MatchRegex(
-				potentialTag.Tag,
-				patternValue) && potentialTag.Tag != "latest" { // exclude identical tags from git+registry
-				if potentialTag.Tag != currentTag {
-					cr = ChangeRequest{
-						Old:          currentTag,
-						New:          potentialTag.Tag,
-						Time:         time.Now(),
-						PatternType:  "regex",
-						PatternValue: patternValue,
-						Image:        image,
-						File:         file,
-					}
-					return true, cr
-				}
-				return false, cr
-			}
-		}
+// matchSemver accepts a semverConstraint then an input string
+func matchSemver(input string, semverConstraint string) bool {
+	c, err := semver.NewConstraint(semverConstraint)
 
-		return false, cr
+	if err != nil {
+		logger.Fatal("Bad semver constraint supplied")
+		return false
 	}
-	logger.Warnw("sorry, regex doesn't match",
-		"currentTag", currentTag,
-		"patternValue", patternValue,
+
+	v, err := semver.NewVersion(input)
+
+	if err != nil {
+		logger.Warnf("Version %s is not a valid semver version", input)
+		return false
+	}
+
+	match := c.Check(v)
+
+	logger.Debugw("comparing semver:",
+		"input", input,
+		"pattern", semverConstraint,
+		"result", match,
 	)
-	return false, cr
+
+	return match
 }
 
-// ReadFile will return the raw []byte content of a file
-func ReadFile(filePath string) ([]byte, string) {
+// readFile will return the raw []byte content of a file
+func readFile(filePath string) ([]byte, string) {
 	r, err := os.ReadFile(filePath)
 	stringContents := string(r)
 	if err != nil {

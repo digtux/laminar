@@ -10,7 +10,7 @@ import (
 )
 
 func DoChange(change ChangeRequest) (result bool) {
-	r, stringContents := ReadFile(change.File)
+	r, stringContents := readFile(change.File)
 
 	var originalContents string
 
