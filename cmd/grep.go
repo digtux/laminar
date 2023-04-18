@@ -224,14 +224,14 @@ func matchSemver(input string, semverConstraint string) bool {
 	c, err := semver.NewConstraint(semverConstraint)
 
 	if err != nil {
-		logger.Fatal("Bad semver constraint supplied")
+		logger.Warnf("Bad semver constraint '%s' supplied", semverConstraint)
 		return false
 	}
 
 	v, err := semver.NewVersion(input)
 
 	if err != nil {
-		logger.Warnf("Version %s is not a valid semver version", input)
+		logger.Warnf("Version '%s' is not a valid semver version", input)
 		return false
 	}
 
