@@ -38,8 +38,9 @@ func (c *Client) Pull(registry cfg.GitRepo) {
 		"branch", registry.Branch,
 	)
 	err = w.Pull(&git.PullOptions{
-		RemoteName: "origin",
-		Depth:      1,
+		RemoteName:    "origin",
+		Depth:         1,
+		ReferenceName: plumbing.NewBranchReferenceName(registry.Branch),
 	})
 	// TODO: replace with err.Error() and check if functions the same
 	if fmt.Sprintf("%v", err) == "already up-to-date" {
@@ -82,7 +83,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 			)
 		}
 	}
-	var mergeRef = plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", registry.Branch))
+	var branchRef = plumbing.NewBranchReferenceName(registry.Branch)
 
 	r, err := git.PlainClone(diskPath, false, &git.CloneOptions{
 		URL:           registry.URL,
@@ -90,7 +91,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 		Auth:          authMethod,
 		SingleBranch:  true,
 		NoCheckout:    false,
-		ReferenceName: mergeRef,
+		ReferenceName: branchRef,
 	})
 	if err != nil {
 		logger.Fatalw("unable to clone the git repo",
@@ -123,7 +124,7 @@ func (c *Client) InitialGitCloneAndCheckout(registry cfg.GitRepo) *git.Repositor
 	err = w.Checkout(&git.CheckoutOptions{
 		// Hash:  *rev,
 		// Force:  true,
-		Branch: mergeRef,
+		Branch: branchRef,
 	})
 
 	if err != nil {
